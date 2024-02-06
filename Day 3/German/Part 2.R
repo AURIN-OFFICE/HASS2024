@@ -1,3 +1,15 @@
+############### ---------------- Workshop -------------- ##############
+###### ------ Clean variables ----- #########
+rm(list=ls())
+###### ------ Install libraries ----- #########
+# install.packages(c('sf','tidyverse','ggplot2','leaflet.extras'))
+library("sf")
+library("tidyverse")
+library("ggplot2")
+library("leaflet.extras")
+
+##### ------ Definition path: Data------ #####
+setwd("/HASS2024/Day 3/German")
 
 ################ ---------------- Part 2: Integration methods -------------- ####################
 ##### -------- Clean environment --------- ########

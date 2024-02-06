@@ -9,7 +9,7 @@ library("ggplot2")
 library("leaflet.extras")
 
 ##### ------ Definition path: Data------ #####
-setwd("~/Day 3/Code/Part 1")
+setwd("/HASS2024/Day 3/German")
 
 
 ################ ---------------- Part 1: Operations with geospatial data -------------- ####################
