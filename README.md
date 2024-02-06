@@ -6,7 +6,7 @@ The projects from the HASS RDC and IRC Program will present workshops on using t
 
 This repository contains the code and data for the following workshops.
 
-# <img src="https://user-images.githubusercontent.com/106126121/176368502-232bee90-accb-4356-bc79-8fc57ed86604.png](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/R_logo.svg/1448px-R_logo.svg.png" width="25"> Day 1 - Wednesday 7 February 2024
+# <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/R_logo.svg/1448px-R_logo.svg.png?20240131042527" width="25"> Day 1 - Wednesday 7 February 2024
 
 ## Part 1 - 160 Mins (11:35-13:00) - Part 2: (14:00-15:15)
  
