@@ -4,8 +4,8 @@
 rm(list=ls())
 
 ##### ------ Install GeoSocial ----- #####
-install.packages('geosocial_1.0.tar.gz',repos = NULL, type = 'source',dependencies=TRUE)
-remove.packages("geosocial")
+# install.packages('geosocial_1.0.tar.gz',repos = NULL, type = 'source',dependencies=TRUE)
+# remove.packages("geosocial")
 
 ##### ------ Load GeoSocial ----- #####
 library(geosocial)
@@ -91,6 +91,8 @@ openxlsx::write.xlsx(x=summaryResults,
 WriteStata(path = 'outputs/', waves = LSAY_waves,
            DataJoined = DataJoined,
            SurveyResponses = SurveyResponses)
-####### -------- Write final log ------ #######
-SummaryLog(summaryResults = summaryResults)
+
+####### -------- Read data ------ #######
+new_data = haven::read_stata("outputs/LSAY09_TSP_2011.dta") 
+View(new_data)
 
