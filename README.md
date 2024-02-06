@@ -23,14 +23,15 @@ This repository contains the code and data for the following workshops.
 
 ## Part 1 - Using R with Social Sciences data - 90 Mins (9:10 - 10:40) 
 **German**
-- 
--
-
+- Introduction to geospatial data
+- Finding and using spatial data
+- Deciding on integration
+  
 ## Part 2 - Using R with Social Sciences data - 90 Mins (11:00 - 12:30) 
 **German**: 
+- Producing a new data product
 - The Geospatial work package
-- Integration methods
-
+  
 **Matthew**: 
 - Outline of our analysis
 - Read data into R
