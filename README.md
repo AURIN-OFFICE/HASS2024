@@ -15,13 +15,11 @@ This repository contains the code and data for the following workshops.
  - Aggregating data
 
 
-# <img src="https://user-images.githubusercontent.com/106126121/176368502-232bee90-accb-4356-bc79-8fc57ed86604.png" width="25"> Day 2 - Thursday 8 February 2024 
+# <img src="https://user-images.githubusercontent.com/106126121/176368502-232bee90-accb-4356-bc79-8fc57ed86604.png" width="45"> Day 2 - Thursday 8 February 2024 
 - Presentation of a Geosocial data integration tool - Germán González 
 
 
-# <img src="https://cdn-icons-png.flaticon.com/512/5721/5721257.png" width="25"> 
-
-Day 3 - Friday 9 February 2024 - Hands-on Session
+# <img src="https://cdn-icons-png.flaticon.com/512/5721/5721257.png" width="45"> Day 3 - Friday 9 February 2024 - Hands-on Session
 
 ## Part 1 - Using R with Social Sciences data - 90 Mins (9:10 - 10:40) 
 **German**
