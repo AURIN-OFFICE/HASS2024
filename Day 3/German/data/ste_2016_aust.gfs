@@ -1,0 +1,35 @@
+<GMLFeatureClassList>
+  <GMLFeatureClass>
+    <Name>ste_2016_aust</Name>
+    <ElementPath>ste_2016_aust</ElementPath>
+    <SRSName>EPSG:4326</SRSName>
+    <DatasetSpecificInfo>
+      <FeatureCount>9</FeatureCount>
+      <ExtentXMin>96.81694</ExtentXMin>
+      <ExtentXMax>167.99803</ExtentXMax>
+      <ExtentYMin>-43.74051</ExtentYMin>
+      <ExtentYMax>-9.14218</ExtentYMax>
+    </DatasetSpecificInfo>
+    <PropertyDefn>
+      <Name>primaryindex</Name>
+      <ElementPath>primaryindex</ElementPath>
+      <Type>Integer</Type>
+    </PropertyDefn>
+    <PropertyDefn>
+      <Name>state_code_2016</Name>
+      <ElementPath>state_code_2016</ElementPath>
+      <Type>Integer</Type>
+    </PropertyDefn>
+    <PropertyDefn>
+      <Name>state_name_2016</Name>
+      <ElementPath>state_name_2016</ElementPath>
+      <Type>String</Type>
+      <Width>28</Width>
+    </PropertyDefn>
+    <PropertyDefn>
+      <Name>area_albers_sqkm</Name>
+      <ElementPath>area_albers_sqkm</ElementPath>
+      <Type>Real</Type>
+    </PropertyDefn>
+  </GMLFeatureClass>
+</GMLFeatureClassList>
