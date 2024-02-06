@@ -19,7 +19,9 @@ This repository contains the code and data for the following workshops.
 - Presentation of a Geosocial data integration tool - Germán González 
 
 
-# Day 3 - Friday 9 February 2024 - Hands-on Session
+# <img src="https://cdn-icons-png.flaticon.com/512/5721/5721257.png" width="25"> 
+
+Day 3 - Friday 9 February 2024 - Hands-on Session
 
 ## Part 1 - Using R with Social Sciences data - 90 Mins (9:10 - 10:40) 
 **German**
