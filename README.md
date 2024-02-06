@@ -6,11 +6,11 @@ The projects from the HASS RDC and IRC Program will present workshops on using t
 
 This repository contains the code and data for the following workshops.
 
-# Day 1 - Wednesday 7 February 2024
+# ![Unknown](https://github.com/AURIN-OFFICE/HASS2024/assets/106126121/5dca52bf-f3de-43b9-b6e2-68554ae922ea) Day 1 - Wednesday 7 February 2024
 
 ## Part 1 - 160 Mins (11:35-13:00) - Part 2: (14:00-15:15)
  
-##  <img src="https://user-images.githubusercontent.com/106126121/176387147-0338e953-5354-4b1e-8208-cb027ec78307.png" width="25"> Data manipulation methods in R - Matthew Curry (UQ) 
+##   Data manipulation methods in R - Matthew Curry (UQ) 
  - Subsetting data
  - Creating modifying variables
  - Merging datasets
