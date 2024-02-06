@@ -9,7 +9,7 @@ library("ggplot2")
 library("leaflet.extras")
 
 ##### ------ Definition path: Data------ #####
-setwd("/HASS2024/Day 3/German")
+setwd("~/HASS2024/Day 3/German")
 
 ################ ---------------- Part 2: Integration methods -------------- ####################
 ##### -------- Clean environment --------- ########
