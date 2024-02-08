@@ -17,15 +17,15 @@ setwd("~/HASS2024/Day 3/German")
 AustraliaStates = read_sf("data/ste_2016_aust.gml")
 ###### ------ Set CRS: Identify the CRS ------ ######
 AustraliaStates = AustraliaStates %>% st_set_crs(4283) 
-AustraliaStates = AustraliaStates[,c('state_name_2016','geometry')]
+AustraliaStates = AustraliaStates[,c('state_name_2016','geom')]
 ###### ------ Simplification ------ ######
 AustraliaStates = st_simplify(AustraliaStates, preserveTopology = TRUE, dTolerance = 100)
 ### -------- Graphic: Image------- #### 
-ggplot() + geom_sf(aes(), data=AustraliaStates$geometry,) 
+ggplot() + geom_sf(aes(), data=AustraliaStates$geom,) 
 dev.off()
 
 #### ------ Union: All States----- #### 
-Australia = st_union(AustraliaStates$geometry )
+Australia = st_union(AustraliaStates$geom )
 Australia = st_transform(Australia, 4326)
 ###### ------ Simplification ------ ######
 Australia = st_simplify(Australia, preserveTopology = TRUE, dTolerance = 1000)
@@ -35,7 +35,7 @@ dev.off()
 
 #### --------- Filter: Australian Capital Territory ACT ------ ##### 
 ACT = AustraliaStates[AustraliaStates$state_name_2016=='Australian Capital Territory','state_name_2016']
-ACT = st_transform(ACT$geometry, 4326)
+ACT = st_transform(ACT$geom, 4326)
 ### -------- Graphic ------- #### 
 ggplot() + geom_sf(aes(), data=ACT) 
 dev.off()
@@ -74,3 +74,10 @@ boundaries_act = st_boundary(ACT)
 centroid_act = st_centroid(ACT)
 ggplot() + geom_sf(aes(), data=boundaries_act) + geom_sf(aes(), data=centroid_act) 
 dev.off()
+
+
+## ------ Task 1: 10 minutes ---- ####
+#### --------- 1. Filter: the data only for Victoria ------ ##### 
+#### --------- 2. Intersects the shape of Victoria with Australia ------ ##### 
+#### --------- 3. Evaluate if Victoria is inside Australia ----- #####
+#### --------- 4. Find the difference between Australia and Victoria

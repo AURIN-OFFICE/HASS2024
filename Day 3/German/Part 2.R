@@ -152,3 +152,4 @@ SEIFA_education = merge(SEIFA_values,Education_values)
 
 #### ------- Simple Correlation ------ #######
 cor(SEIFA_education[,c("mean_irsd_score","score")])
+
