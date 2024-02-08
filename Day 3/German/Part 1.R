@@ -17,15 +17,16 @@ setwd("~/HASS2024/Day 3/German")
 AustraliaStates = read_sf("data/ste_2016_aust.gml")
 ###### ------ Set CRS: Identify the CRS ------ ######
 AustraliaStates = AustraliaStates %>% st_set_crs(4283) 
-AustraliaStates = AustraliaStates[,c('state_name_2016','geom')]
+variables = grep(colnames(AustraliaStates),pattern = "state_name_2016|geom")
+AustraliaStates = AustraliaStates[,variables]
 ###### ------ Simplification ------ ######
 AustraliaStates = st_simplify(AustraliaStates, preserveTopology = TRUE, dTolerance = 100)
 ### -------- Graphic: Image------- #### 
-ggplot() + geom_sf(aes(), data=AustraliaStates$geom,) 
+ggplot() + geom_sf(aes(), data=AustraliaStates) 
 dev.off()
 
 #### ------ Union: All States----- #### 
-Australia = st_union(AustraliaStates$geom )
+Australia = st_union(AustraliaStates[,2] )
 Australia = st_transform(Australia, 4326)
 ###### ------ Simplification ------ ######
 Australia = st_simplify(Australia, preserveTopology = TRUE, dTolerance = 1000)
@@ -35,7 +36,7 @@ dev.off()
 
 #### --------- Filter: Australian Capital Territory ACT ------ ##### 
 ACT = AustraliaStates[AustraliaStates$state_name_2016=='Australian Capital Territory','state_name_2016']
-ACT = st_transform(ACT$geom, 4326)
+ACT = st_transform(ACT[,2], 4326)
 ### -------- Graphic ------- #### 
 ggplot() + geom_sf(aes(), data=ACT) 
 dev.off()
@@ -81,3 +82,4 @@ dev.off()
 #### --------- 2. Intersects the shape of Victoria with Australia ------ ##### 
 #### --------- 3. Evaluate if Victoria is inside Australia ----- #####
 #### --------- 4. Find the difference between Australia and Victoria
+
