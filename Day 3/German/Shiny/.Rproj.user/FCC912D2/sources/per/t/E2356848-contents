@@ -1,0 +1,1301 @@
+################################## ---------------- Servidor: Ecopetrol ----------------  ##################################
+server = shinyServer(function(input, output, session) {
+  ################################# ---------------- Directorio ----------------  ##################################
+  ### ---- Directorio ---- ###
+  ### ---- Instalacion Rapida ---- ##
+  #path <<- '/home/german/quantrisk/'
+  path <<-gsub(rstudioapi::getActiveDocumentContext()$path,pattern = "Shiny/.+",replacement = "")
+
+  ### ---- Paquetes ---- ##
+  source(paste0(path,"/Codigo/Utilities/Funciones.R"))
+
+  #source(paste0(path,"/Shiny/Paquetes.R"),encoding = "UTF-8")
+  #### -------- Opcion avanzada: Backup ---------#####
+  shinyFileChoose(input, id = 'dir', roots=c(wd=paste0(path,"Outputs/Backup/")),  session=session)
+  directo <<- reactive(input$dir)
+  path_utilizar <<- reactive( parseFilePaths(roots=c(wd=paste0(path,"Outputs/Backup/")), input$dir))
+  Backup_generado = new.env()
+
+  #### -------- Parametros menu dinamico ---------#####
+  Corrio_total <<- F
+
+  Corrio_total_tiempo <<- F
+
+  #### ---- Insumos Menu inicial ----- #####
+  Menu_cargado_inicial <<- F
+  #### ---- Actualizacion de Datos ----- #####
+  Insumos_econometria_ejecutadas <<- F
+  #### ---- Insumos Empresas ----- #####
+  Insumos_empresas_ejecutadas <<- F
+  #### ---- Insumos Econometria ----- #####
+  Econometria_principal_corrida_ejecutada <<- F
+  #### ---- Insumos econometria ---- ##
+  Menu_econometria_dinamico <<- F
+
+  Simulaciones_herramienta_predeterminada = 1000
+
+  ################################## ---------------- Menu ----------------  ##################################
+  output$menu <- renderUI(
+    ############### --------- Cuando se carga la econometria sale el menu de econometria  -------- ##############
+    if(!is.null(input$tabs)){
+      if (Menu_cargado_inicial == T){
+        if (Menu_econometria_dinamico == T){
+          if ( (Corrio_total == F & Menu_cargado_inicial == T)|input$tabs == "Iniciar_resultados"|((Corrio_total == F & input$tabs == "Mercado_Tabs_econometria") == T)|input$tabs == "Opciones_avanzadas_econ"){
+            tagList(
+              sidebarMenu(
+                menuItem("Econometria", tabName = "econometria",icon=icon("line-chart"),
+                         sidebarMenu(menuItem("Estadísticas", tabName = "Iniciar_resultados",icon = icon("chevron-circle-right")),id = "tabs",
+                                     ######## ------- Menu dinamico de econometria (Se adapta a las categorias de factores existentes en la econometria) ------ ####
+                                     do.call(what = sidebarMenu,lapply(Filiales_correr[[1]]$Categoria[match(c("Crudos nacionales","Crudos internacionales","Refinados","Petroquimicos","Mercado"),Filiales_correr[[1]]$Categoria,nomatch = NA)[!is.na(match(c("Crudos nacionales","Crudos internacionales","Refinados","Petroquimicos","Mercado"),Filiales_correr[[1]]$Categoria,nomatch = NA))]], function(x){menuItem(text = x,tabName = paste0(gsub(x,pattern = " ",replacement = "_"),"_Tabs_econometria") ,icon = icon("chevron-circle-right"))})),
+                                     #menuItem("Avanzadas", tabName = "Opciones_avanzadas_econ",icon = icon("chevron-circle-right")),
+                                     menuItem("Continuar con análisis", tabName = "Continuar_analisis")
+                         ),
+                         id = "tabs")))
+          } else if ((Corrio_total == T & Menu_cargado_inicial == T) | input$tabs == "Modelacion_principal" | input$tabs == "Continuar_analisis" | ((Corrio_total == T&input$tabs == "Mercado_Tabs_econometria") == T) | input$tabs == "Modelos"|input$tabs == "Sensibilidades"|input$tabs == "Riesgo"|input$tabs == "Coberturas") {
+            tagList(
+              sidebarMenu(
+                menuItem("Econometria", tabName = "econometria",icon=icon("line-chart"),
+                         sidebarMenu(menuItem("Estadísticas", tabName = "Iniciar_resultados",icon = icon("chevron-circle-right")),id = "tabs",
+                                     ######## ------- Menu dinamico de econometria (Se adapta a las categorias de factores existentes en la econometria) ------ ####
+                                     do.call(what = sidebarMenu,lapply(Filiales_correr[[1]]$Categoria[match(c("Crudos nacionales","Crudos internacionales","Refinados","Petroquimicos","Mercado"),Filiales_correr[[1]]$Categoria,nomatch = NA)[!is.na(match(c("Crudos nacionales","Crudos internacionales","Refinados","Petroquimicos","Mercado"),Filiales_correr[[1]]$Categoria,nomatch = NA))]], function(x){menuItem(text = x,tabName = paste0(gsub(x,pattern = " ",replacement = "_"),"_Tabs_econometria") ,icon = icon("chevron-circle-right"))}))),
+                         id = "tabs")),
+              sidebarMenu(
+                menuItem("Sensibilidades", tabName = "Sensibilidades",icon=icon("plus")),
+                menuItem("Riesgo", tabName = "Riesgo",icon=icon("exclamation-circle")),
+                menuItem("Coberturas", tabName = "Coberturas",icon=icon("shield"))
+                ,id = "tabs"))
+
+          } else {
+          }}
+
+      } else {
+
+      }
+      }
+  )
+
+
+
+  ############### --------- Pagina 1: Cargar --------- ##############
+  output$Inicio <- renderUI(
+    Graficar_box(
+      id = 10,
+      header_img = "Econometria.jpg",
+      front_title = h2(HTML('<strong><font color="#002e5b">QuantRisk - Demo</font></strong>')),
+      tagList(
+        timelineBlock(
+          timelineEnd(color = "danger"),
+          timelineLabel(HTML('<strong> Definición del portafolio</strong>'), color = "olive"),
+          timelineItem(
+            title = HTML('<b></b><br/><p align="justify" <p style="font-family:verdana;">Definición de Portafolio: se puede trabajar con EBITDA, Flujos de Caja, Utilidad antes de impuestos; cada esquema trae sus características que deben ser analizadas.<br> </p></p>'),
+            icon = "project-diagram",
+            color = "olive",
+            timelineItemMedia(src = "structure.png",height = 300,width = 550)),
+          timelineLabel(HTML('<strong>Identificación de los factores de riesgo</strong>'), color = "blue"),
+          timelineItem(
+            title =HTML('<b></b><br/><p align="justify" <p style="font-family:verdana;"> Consiste en identificar las variables de mercado que afectan los resultados de la empresa. </p></p>') ,icon = 'exclamation', color = "blue",
+            border = FALSE
+          ),
+          timelineLabel(HTML('<strong>Valoración del Portafolio</strong>'), color = "red"),
+          timelineItem(
+            title =HTML('<b></b><br/><p align="justify" <p style="font-family:verdana;"> <br> Determinar detalles de valoración, horizonte de análisis.</p></p>'),icon = 'expand', color = "red",
+            border = FALSE
+          ),
+          timelineLabel(HTML('<strong>Sensibilidad</strong>'), color = "orange"),
+          timelineItem(
+            title =HTML('<b></b><br/><p align="justify" <p style="font-family:verdana;"> <br> Exposición de los resultados de la empresa a los factores de riesgo.</p></p>') ,icon = 'plus', color = "orange",
+            border = FALSE
+          ),
+          timelineLabel(HTML('<strong>Proyección de Factores</strong>'), color = "olive"),
+          timelineItem(
+            title = HTML('<b></b><br/><p align="justify" <p style="font-family:verdana;"> uso de modelos econométricos y de difusión estocástica para simular la evolución conjunta de las variables de mercado a partir de la distribución definida por los modelos. </p></p>'),icon = 'line-chart', color = "red",
+            border = FALSE
+          ),
+          timelineLabel(HTML('<strong>Medición Riesgo</strong>'), color = "maroon"),
+          timelineItem(
+            title =HTML('<b></b><br/><p align="justify" <p style="font-family:verdana;"> Cuantificación del riesgo de los resultados de la empresa para seguimiento, supervisión y reporte a directivas. </p></p>'),icon = 'shield', color = "maroon",
+            border = FALSE
+          ),
+          timelineLabel(HTML('<strong>Perfil de Riesgo</strong>'), color = "light-blue"),
+          timelineItem(
+            title =HTML('<b></b><br/><p align="justify" <p style="font-family:verdana;"> <br> Cuantificación de las preferencias de la empresa, en términos del espacio riesgo-retorno.</p></p>'),icon = 'users', color = "light-blue",
+            border = FALSE
+          ),
+          timelineLabel(HTML('<strong>Gestión del Riesgo</strong>'), color = "purple"),
+          timelineItem(
+            title =HTML('<b></b><br/><p align="justify" <p style="font-family:verdana;"> <br>Diseño e implementación de una Política de Coberturas que plasme la tolerancia al riesgo, asigne funciones, aterrice temas operativos y enmarque el diseño de una estrategia de Coberturas. Esta estrategia respetará la búsqueda de eficiencia en el portafolio agregado (resultados sin coberturas + Coberturas), dentro de los lineamientos exigidos por la Política.</p></p>'),icon = 'plus', color = "purple",
+            border = FALSE
+          ),
+          timelineStart(color = "gray")
+        ),
+        sidebarMenu(menuItem(text = "Entiendo - Ver Demo", tabName = "archivos",badgeColor = 'orange')
+                    #,menuItem(text = "Opciones", tabName = "avanzadas_main",icon = icon("clipboard"))
+                    ,id = "tabs"),
+        HTML(' <br> <br>  <br>  Copyright 2019 - &copy; Quantil. Todos los derechos reservados. <br> <br> <br> ')
+      )
+
+    )
+  )
+
+
+
+  output$Avanzadas_main <- renderUI(
+    tagList(
+    tabPanel(title = "",
+             box(title = "Opciones avanzadas",solidHeader = T,width = 1000,height = 1000,status = "primary",
+                 tabBox(side = "right", height = 500,width = 550,selected = "Parámetros",
+                        tabPanel(title = "Parámetros", icon = icon("check"),tagList(
+                          HTML('<b> <center> <strong><font color="#002e5b">Simulaciones</font></strong>: </b> 	  ')
+                          ,sliderTextInput(
+                            inputId = "Simulaciones_herramienta",
+                            label = "",
+                            choices = seq(0,10000,20),
+                            grid = TRUE,selected = 1000
+                          ),
+                          renderText("Seleccione el número de simulaciones con el que desea utilizar la herramienta."),
+                          sidebarMenu(menuItem(text = "Empezar", tabName = "archivos",icon = icon("play-circle")),
+                                        menuItem(text = "Volver", tabName = "Cargar_inicio",icon = icon("clipboard")),id = "tabs")
+                        )),
+
+                        tabPanel(title = "Backup", icon = icon("folder"),
+                                 tagList(HTML('<b> <center> <strong><font color="#002e5b">Directorio</font></strong>: </b> 	  <br>  <br> <p align="justify" <p style="font-family:verdana;"> El usuario puede cargar una copia de seguridad y visualizar los resultados de esta.'),
+                                         textOutput(outputId = "Seleccione el directorio"),
+                                         shinyFilesButton('dir', 'Seleccione la copia de seguridad', 'Seleccione la copia de seguridad', FALSE,icon = icon("archive")),
+                                         renderText(ifelse(test = length(input$dir) == 1,no = paste0("La copia de seguridad que se está utilizado es: ",path_utilizar()),yes = "")),
+                                         sidebarMenu(
+                                           menuItem("Cargar archivos",tabName = "Descriptivas_backup"),
+                                           id = "tabs"))),
+                        tabPanel(title = "Econometría", icon = icon("bar-chart"),tagList(
+                          HTML('<b> <center> <strong><font color="#002e5b">Econometría</font></strong>: </b><br><br>'),
+                          HTML('<p align="justify" <p style="font-family:verdana;">Permite al usuario realizar simulaciones de los principales grupos de factores de riesgo de manera independiente a los modelos de las empresas.'),
+                                  sidebarMenu(menuItem("Simular", tabName = "Opciones_avanzadas_econ",icon = icon("chevron-circle-right")) ,id = "tabs"))),
+                        tabPanel(title = "Actualización", icon = icon("database"),tagList(
+                          HTML('<b> <center> <strong><font color="#002e5b">Actualización de Insumos</font></strong>: </b><br><br>'),
+                          HTML('<p align="justify" <p style="font-family:verdana;">En esta sección el usuario podrá actualizar los insumos de la herramienta. Esta funcionalidad debe ejecutarse después de haber actualizado todos los Exceles que requiere la herramienta.'),
+                                                                                    sidebarMenu(menuItem(text = "Actualizar insumos", tabName = "Actualizacion_datos_herramienta",icon = icon("play-circle")),id = "tabs"))))))))
+
+
+################################# ---------------- Backup ----------------  ##################################
+  output$Descriptivas_backup<- renderUI(
+    if(!is.null(input$tabs)){
+      if(input$tabs == "Descriptivas_backup"){
+        #### ---- En el caso en el que no se seleccione una copia ---- ####
+        if( length(path_utilizar()$datapath) > 0 ) {
+          source(paste0(path,"/Codigo/Utilities/Funciones.R"),encoding = "UTF-8")
+          source(paste0(path,"/Codigo/Utilities/Futilidad.R"),encoding = "UTF-8")
+          load(file = path_utilizar()$datapath,envir = Backup_generado)
+
+          #### -------- Parametros menu dinamico: Backup ---------#####
+          Corrio_total <<- Backup_generado$Corrio_total
+          #### ---- Insumos Menu inicial ----- #####
+          Menu_cargado_inicial <<- Backup_generado$Menu_cargado_inicial
+          #### ---- Insumos Datos ----- #####
+          Insumos_econometria_ejecutadas <<- Backup_generado$Insumos_econometria_ejecutadas
+          #### ---- Insumos Empresas ----- #####
+          Insumos_empresas_ejecutadas <<-  Backup_generado$Insumos_empresas_ejecutadas
+          #### ---- Insumos Econometria ----- #####
+          Econometria_principal_corrida_ejecutada <<- Backup_generado$Econometria_principal_corrida_ejecutada
+          #### ---- Insumos econometria ---- ##
+          Menu_econometria_dinamico <<- Backup_generado$Menu_econometria_dinamico
+          Filiales_correr <<- Backup_generado$Filiales_correr
+          Matriz_Fechas_comando <<- Backup_generado$Matriz_Fechas_comando
+          Modo_backup <<- T
+          if (length(Backup_generado$Filiales_correr[[1]]$Categoria) != 0){
+            Fechas_linea_tiempo_econometria_max = NULL
+            Fechas_linea_tiempo_econometria_min = NULL
+
+            ### --- En el caso en el que la matriz de una dimension --- ###
+            ### -- 12 por el numero de empresas -- ###
+            if (length(Backup_generado$Matriz_simulaciones) < 12) {
+              for (t in 1:length(Backup_generado$Matriz_simulaciones)) {
+                Fecha_linea_individual_max = max(dimnames(Backup_generado$Matriz_simulaciones[[t]])[[1]])
+                Fecha_linea_individual_min = min(dimnames(Backup_generado$Matriz_simulaciones[[t]])[[1]])
+                Fechas_linea_tiempo_econometria_min = cbind(Fechas_linea_tiempo_econometria_min,Fecha_linea_individual_min)
+                Fechas_linea_tiempo_econometria_max = cbind(Fechas_linea_tiempo_econometria_max,Fecha_linea_individual_max)
+              }
+              data <- data.frame(
+                id      = 1:length(Backup_generado$Matriz_simulaciones),
+                content = c(paste0("Econometría - Grupo ",seq(1:length(Backup_generado$Matriz_simulaciones)))),
+                start   = as.Date(as.character(Fechas_linea_tiempo_econometria_min)),
+                end     = as.Date(as.character(Fechas_linea_tiempo_econometria_max)))
+            } else {
+              data <- data.frame(id= 1,
+                                 content =  "Econometria",
+                                 start   = as.Date(min(dimnames(Backup_generado$Matriz_simulaciones)[[1]])),
+                                 end     = as.Date(max(dimnames(Backup_generado$Matriz_simulaciones)[[1]])))
+            }
+
+
+            tagList(
+              tabBox(side = "right", height = 1400,width = 550,selected = "Empresa",
+                     fluidRow(
+                       box(
+                         title = paste0("Copia de seguridad - ",as.Date(file.info(file = path_utilizar()$datapath)$atime)), status = "primary", solidHeader = TRUE, width = 12,tagList(renderTimevis({timevis(data)}),
+                                                                                                                                                                                       HTML("Estado de información para las empresas que pueden incluirse en el análisis. Las empresas que no se muestran no tienen información suficiente para ser incluidas. Para continuar, oprimir el botón de Ejecutar"),
+                                                                                                                                                                                       do.call(what = userList,
+                                                                                                                                                                                               args=lapply(as.character(Backup_generado$Matriz_Fechas_comando[,"Empresas"]),
+                                                                                                                                                                                                           function(y){Empresas_comando_dinamica(Empresa = y,input = input,Matriz_Fechas_comando = Backup_generado$Matriz_Fechas_comando,Informacion_empresas = Backup_generado$Informacion_empresas)}))))),
+                     sidebarMenu(menuItem("Ejecutar", tabName = "Iniciar",icon = icon("play")),id = "tabs"),
+                     sidebarMenu(menuItem("Volver", tabName = "avanzadas_main",icon = icon("arrow-left")),id = "tabs")))
+
+          }} else {
+            shinyalert(html = T,title = "Seleccione un Backup",timer = 2500,text = HTML(paste0('<ul class="sidebar-menu"><a href="#shiny-tab-avanzadas_main" data-toggle="tab" data-value="avanzadas_main">
+                                            <i class="fa fa-arrow-left"></i><span>Volver</span></a></li><div id="tabs" class="sidebarMenuSelectedTabItem" data-value="null"></div>
+                                            </ul>')),
+                       type = "warning",showConfirmButton = T, confirmButtonText = "Entiendo",showCancelButton = F)
+
+          }
+        }
+      }
+    )
+
+  output$Filiales <- renderUI(
+    if(!is.null(input$tabs)){
+      if(input$tabs == "archivos"){
+        ### --------- Seleccion entre el path automatico o el definido por el usuario ---- ###
+        path <<- ifelse(test = length(input$dir) == 0,no = path,yes = path)
+        #### --------------- Paso 2: Cargar parametros --------------- ###
+        ### --- Insumos: Parametros --- ###
+        Base_excel <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = 1))
+        ### Nombres ###
+        Nombres_shiny <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Nombres"))
+        ### Variables de cada empresa ###
+        Informacion_empresas <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Variables"))
+        Parametros_empresas <<- c("Parametros","inputsReficar","param_hocol","Lista_Inputs_CENIT","Lista_Inputs_OCENSA","Exceles_Ho","ListaInsumos_esenttia")
+        Variables_guardar <<- c(Guardar_princial,"Agregacion_riesgo_empresas_herramienta_amb","Fecha_analisis","Menu_econometria_dinamico","A1","Base_excel","Matriz_tiempo","Filiales_correr","Empresas","Simulaciones","Matriz_simulaciones","Variables_guardar","TipoProduccion","Parametros_empresas",Parametros_empresas,"Informacion_empresas",c(as.character(Informacion_empresas[,"Insumos"])),c(as.character(Informacion_empresas[,"Cambios"])),as.vector(lsf.str()))
+
+        #### --------------- Paso 3: Cargar empresas --------------- ###
+        ### ---- Se verifica carpeta por carpeta de la raiz y extrae un Rdata --- ###
+        if ((Modo_backup == FALSE & Insumos_empresas_ejecutadas == F)){
+          #Cargar_insumos_empresas(Raiz = paste0(path,"/Inputs/Empresas/"),Shiny = T)
+          Insumos_empresas_ejecutadas <<- T
+          ### --- Desactiva la econometria auxiliar y activa la principal --- ####
+          Simular_auxiliar <<- F
+        }
+
+        ### ---- Construye una base de datos que indica las fechas disponibles de cada empresa --- ###
+
+        ### ----------------------- Empresas  ------------------------------ ###
+        Segmentos_empresas_load <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Segmentos"))
+
+        Graficar_box(
+          id = 1,
+          header_img = "business.jpg",
+          front_title = HTML('<strong><font color="#002e5b"> Seleccione la empresa a análizar: </font></strong>'),
+          box(HTML('<p align="justify" <p style="font-family:verdana;"> ACME es una empresa dedicada a la producción y comercialización de Commodity, con producción en un país asiático y ventas en EE.UU. La empresa maneja como moneda funcional la LC pero tiene exposición a la tasa de cambio LC/USD y al precio de venta de sus productos. El país en donde reside no tiene inflación y sus créditos los mantiene a tasas fijas en moneda local.
+La producción de ACME es relativamente certera, pero cuenta con una leve incertidumbre debido a condiciones químicas desconocidas. Por su parte, para la producción debe utilizar elementos puros. Independiente de la cantidad producida, siempre debe comprarse la misma cantidad de elementos, parte de los cuales se pierden en el ambiente durante la producción. Adicionalmente, la empresa adquirió hace unos años unas máquinas con las cuales se realiza la producción, las cuales se deprecian según producción, a un costo de USD$5 por tonelada de Commodity producida.
+En gastos, la empresa debe pagar trimestralmente USD$15MM en servicios en el exterior y LC$10,000MM en gastos operativos en el país. Por otra parte, la empresa tiene un gasto financiero por concepto de intereses por un total de LC$5,000 por concepto de un préstamo utilizado para la compra de máquinas.
+El producto vendido se negocia en la Bolsa de Chicago y cuenta con un mercado de futuros de alta liquidez. Los elementos necesarios para la producción de una tonelada Commodity cuestan aproximadamente la mitad de su precio de venta y se consiguen también en la Bolsa. Finalmente, la empresa paga una tasa impositiva del 34% <br> <br> </p></p>'),width = 1000,height = 350),
+          tagList(
+                      ################ ------------------ Ecopetrol ---------------------- ##########
+                      userList(
+                        userListItem(
+                          src = "/Quantil/Logo.png",
+                          user_name = Botones_desativados_empresas(Input_id = "ACME_select",Etiqueta = "ACME",Activado = T,Check = T),
+                          description = HTML(paste0('<strong><font color="#415464"> Moneda funcional: COP </font></strong><br>',
+                                                    as.Date(paste0(year(Sys.Date()),'-01-01'))
+                                                    ,' - ',
+                                                    as.Date(paste0(year(Sys.Date()),'-12-01'))))
+                        )) ,renderUI({
+                          Empresas_disponibles_correr()
+                          tagList("")}),
+
+                      sidebarMenu(menuItem("Entendido", tabName = "Iniciar",icon = icon("play")),id = "tabs"),
+                      sidebarMenu(menuItem("Anterior", tabName = "Cargar_inicio",icon = icon("arrow-left")),id = "Menu_principal"))
+
+          )
+      }
+    } else {}
+  )
+
+
+  ################################## ---------------- Econometria ----------------  ##################################
+
+  output$Actualizacion_datos_herramienta <- renderUI(
+    if(!is.null(input$tabs)){
+      if(input$tabs == "Actualizacion_datos_herramienta"){
+        source(paste0(path,"/Codigo/Utilities/Funciones.R"),encoding = "UTF-8")
+
+        if (Modo_backup == FALSE & Insumos_econometria_ejecutadas == F){
+          progress = shiny::Progress$new()
+          on.exit(progress$close())
+          progress$set(message = "Se están cargando los datos de ", value = 0)
+          #### ------- Diferenciales -------- ###
+          source(paste0(path,"/Codigo/Datos/Calibracion.R"),encoding = "UTF-8")
+          # CurvasHistoricas = Prueba[["Historico"]]
+          # save(CurvasHistoricas, file="CurvasHistoricasFinal.Rdata")
+          shinyalert("Se están calibrando las curvas de mercado. Por favor espere.", type = "warning",showConfirmButton = T, confirmButtonText = "Entiendo",showCancelButton = F)
+
+          ConsolidadoFormato = GenerarRdata_DatosCurvas(path = path,CurvasHistoricas = CurvasHistoricas,Actualizar = T,Shiny = T)
+
+          save(ConsolidadoFormato,file = paste0(path,"/Inputs/Econometria/Mercado/Calibracion/ConsolidadoCurvas.Rdata"))
+
+          shinyalert(paste0("Las curvas se encuentran actualizadas hasta el ",Verificar_Actualizar2(path)), type = "success",showConfirmButton = T, confirmButtonText = "Entiendo",showCancelButton = F)
+
+          shinyalert("Se están cargando los datos de la herramienta.", type = "info",showConfirmButton = T, confirmButtonText = "Entiendo",showCancelButton = F)
+          progress$inc(0.333, detail = "Calibrando curvas")
+          #### ------- Diferenciales -------- ###
+          ########## ------------- Construcción de Matriz datos ----------------------- ########
+          source(paste0(path,"/Codigo/Datos/Cargar.R"),encoding = "UTF-8")
+          progress$inc(0.333, detail = "Extras.")
+          ########## ------------- Interpolacion de datos faltantes  ----------------------- ########
+          ########## ------------- Futuros - Matriz  ----------------------- ########
+          source(paste0(path,"/Codigo/Datos/Futuros.R"),encoding = "UTF-8")
+          progress$inc(0.333, detail = "Futuros.")
+
+          ### ------ Termina de correrse, no vuelve a ejecutar lo mismo --------- ####
+          Insumos_econometria_ejecutadas <<- T
+
+          load(paste0(path,'/Outputs/Matriz/Informacion_econometria.Rdata'))
+          Informacion_econometria <<- Informacion_econometria
+          load(paste0(path,'/Outputs/Matriz/Informacion_futuros.Rdata'))
+          Futuros_datos <<- Futuros_datos
+
+          shinyalert(html = T,animation = "pop",title = "El proceso fue éxitoso.",text = HTML(paste0('<ul class="sidebar-menu"><a href="#Cargar_inicio" data-toggle="tab" data-value="Cargar_inicio">
+                                            <span>Inicio</span></a></li><div id="tabs" class="sidebarMenuSelectedTabItem" data-value="null"></div>
+                                                                                </ul>')),
+                     type = "success",showConfirmButton = T, confirmButtonText = "Entiendo",showCancelButton = F)
+
+          } else {
+          load(paste0(path,'/Outputs/Matriz/Informacion_econometria.Rdata'))
+          Informacion_econometria <<- Informacion_econometria
+          load(paste0(path,'/Outputs/Matriz/Informacion_futuros.Rdata'))
+          Futuros_datos <<- Futuros_datos
+        }
+
+        ### ---- Se consolidan la base de datos de econometria y de futuros --- ###
+        Informacion_avanzada_econ <<- Informacion_factores_econometria(Info_futuros = Futuros_datos,Info_econometria = Informacion_econometria)
+        ### ---- Fechas de los factores disponbiles --- ###
+        Fechas_factores <<- data.frame(Indicador = as.character(unlist(Informacion_econometria[,"Nombre"])),
+                                       Fecha_maxima = as.Date(unlist(Informacion_econometria[,"Max_fecha"])),
+                                       Categoria = as.character(unlist(Informacion_econometria[,"Categoria"])))
+
+        ############################### ------------------ Factores de Riesgo ----------------------- ##########################
+        box(title =  h2(HTML('<strong><font color="#002e5b">Factores de riesgo - Actualizados</font></strong>')),width = "1000px",height = "4200px",status = "primary",
+            tagList(
+              ### ----- Titulo ------ ###
+              renderText("A continuación se presenta los factores de riesgo y su correspondiente fecha de actualización"),
+
+              ### ---------------- Volver a las opciones principales --------------- ####
+              sidebarMenu(menuItem("Volver", tabName = "avanzadas_main",icon = icon("arrow-left")),id = "Menu_principal"),
+
+              HTML("<br/>"),
+              ### ----------------- Tabla Factores de actualizados ---------------- ###
+              renderDataTable(datatable(Info_econometria,
+                                        selection = list(target = "cell"),extensions = 'Buttons',options = list(autoWidth = FALSE,searching = FALSE, paging = FALSE,ordering = FALSE,dom = 'Bfrtip',buttons = list(
+                                          list(extend = 'copy',text = "Copiar",title = "Factores de riesgo actualizados"),
+                                          list(extend = 'excel',text = "Excel",sheetName = "Actualizados",
+                                               messageBottom = paste0("Fecha de actualización: ", Sys.Date()),
+                                               title = "Factores de riesgo actualizados"),
+                                          list(extend = 'pdf',text = "PDF",title = 'Factores de riesgo actualizados')))))))
+      }
+    }
+  )
+
+
+
+
+
+###########################  ------------------------- Estadisticas econometria ------------------------- ############################
+output$Econometria_principal <- renderUI(
+  if(!is.null(input$tabs)){
+    if(input$tabs == "Iniciar"){
+      Menu_cargado_inicial <<- T
+      if ((Modo_backup == FALSE | Econometria_principal_corrida_ejecutada == FALSE)){
+        ### --- Información de las filiales --- ###
+        if (Simular_auxiliar == F){
+
+          Guardar_princial <<- c("Menu_cargado_inicial","Resultados_agregacion_teorica","Resultados_agregacion_contable","Corrio_total_tiempo","input","Informacion_empresas","Fechas_Empresas_cargadas","Futuros_datos","Informacion_econometria","Nombres_shiny","Matriz_Fechas_comando","progress","Funciones_de_herramienta_guardar","Matriz_Fechas","Agregacion_riesgo_empresas_herramienta_amb","path","Modo_backup","Menu_cargado_inicial","Matriz_Fechas","Fechas_factores","Menu_econometria_dinamico","Fecha_analisis","Ajustar_simulaciones","Media_futuros","Simulaciones","Guardar_princial","Simular_auxiliar","Corrio_total","Filiales_correr","Matriz_datos","Shiny","Insumos_empresas_ejecutadas","Insumos_econometria_ejecutadas","Econometria_principal_corrida_ejecutada")
+          source(paste0(path,"/Codigo/Econometria/Econometria.R"),encoding = "UTF-8")
+
+          Econometra_dinamica_principal(Shiny = T,Numero_simulaciones = if (!is.null(input[["Simulaciones_herramienta"]])) {input[["Simulaciones_herramienta"]]} else {Simulaciones_herramienta_predeterminada})
+
+          save.image(file = paste0(path,"Outputs/Backup/",paste0("Backup_",Sys.Date(),".Rdata")))
+
+
+          ### --- Información Econometria --- ###
+          load(paste0(path,"/Outputs/Simulaciones/Matriz_simulaciones_final.Rdata"))
+          Matriz_simulaciones <<- Matriz_simulaciones
+          load(paste0(path,"/Inputs/Parametros/Filiales_correr.Rdata"))
+          Filiales_correr <<- Filiales_correr
+          }
+        } else {
+        ### --- Información de las filiales --- ###
+        if (Simular_auxiliar == F){
+          #### --- Se cargan los últimos parametros cargados ---- ####
+          load(paste0(path,"/Inputs/Parametros/Filiales_correr.Rdata"))
+          print("Cargando parametros de los modelos")
+          Filiales_correr <<- Backup_generado$Filiales_correr
+          Matriz_Fechas_comando <<- Backup_generado$Matriz_Fechas_comando
+          ### --- Información Econometria --- ###
+          Matriz_simulaciones <<- Backup_generado$Matriz_simulaciones
+          } else if (Simular_auxiliar  == T){
+          print("Cargando parametros auxiliares")
+          Filiales_correr <<- Econometria_panel_avanzadas
+          ### --- Información Econometria --- ###
+          load(paste0(path,"/Outputs/Simulaciones/Matriz_simulaciones_final.Rdata"))
+          Matriz_simulaciones <<- Matriz_simulaciones
+
+        }
+        ### --- Se cargan los últimos guardados y se asigna verdadero ---- ###
+        Menu_econometria_dinamico <<- T
+        }
+
+      if (length(Filiales_correr[[1]]$Categoria) != 0){
+        Fechas_linea_tiempo_econometria_max = NULL
+        Fechas_linea_tiempo_econometria_min = NULL
+
+        ### --- En el caso en el que la matriz de una dimension --- ###
+        ### -- 12 por el numero de empresas -- ###
+
+        load(paste0(path,"/Inputs/Parametros/Matriz_comando_fechas.Rdata"))
+        Fecha_min_factores_vis = min(unique(Matriz_Fechas_comando[,"Fecha_inicial"]))
+        Fecha_max_factores_vis = max(unique(Matriz_Fechas_comando[,"Fecha_final"]))
+
+          data <- data.frame(id= 1,
+                             content =  "Factores de Riesgo - ACME",
+                             start   = as.Date(Fecha_min_factores_vis),
+                             end     = as.Date(Fecha_max_factores_vis))
+
+          Menu_econometria_dinamico <<- T
+
+
+        ############### ------------------------- Resultados -------------------------  ###############
+        tagList(Graficar_box(
+          id = 2,
+          header_img = "new-statistics.jpg",
+          front_title = HTML('<strong><font color="#002e5b">Resultados - Simulación Factores de riesgo</font></strong>'),
+          HTML(' &nbsp; Se simularion 2 factores de riesgo basadas en una fecha de corte para las series históricas. El horizonte de simulación se muestra a continuación. <br> '),
+          tagList(### --- linea de tiempo --- ###
+
+            renderTimevis({timevis(data,showZoom = TRUE,options = )}),
+            ### --- Menu --- ###
+            sidebarMenu(menuItem("Ver resultados de la econometría", tabName = "Iniciar_resultados",icon = icon("play")),id = "tabs"),
+            sidebarMenu(menuItem("Volver", tabName = "archivos",icon = icon("arrow-left")),id = "Menu_principal"))
+
+        )
+          ### --- Estadistica descriptivas de la econometria en general --- ###
+          )
+
+      } else {
+        tagList(
+          h2(HTML('<strong><font color="#002e5b">Resultados Simulaciones</font></strong>')),
+          sidebarMenu(menuItem("Volver", tabName = "Opciones_avanzadas_econ",icon = icon("arrow-left")),id = "tabs")
+
+        )
+      }
+
+    }
+  }
+)
+
+
+###########################  ------------------------- Resultados econometria ------------------------- ############################
+output$Econometria_resultados <- renderUI(
+  if(!is.null(input$tabs)){
+    if(input$tabs == "Iniciar_resultados"){
+      if (Modo_backup == F){
+      ### ------------------------- Funciones ------------------------- ###
+      source(paste0(path,"/Codigo/Utilities/Funciones.R"),encoding = "UTF-8")
+      source(paste0(path,"/Codigo/Utilities/Futilidad.R"),encoding = "UTF-8")
+
+      ### ------------------------- Informacion ------------------------- ###
+      load(paste0(path,'/Outputs/Matriz/Informacion_econometria.Rdata'))
+      load(paste0(path,"/Outputs/Matriz/Matriz_datos.Rdata"))
+      Matriz_datos <<- Matriz_datos
+
+      ### ------------------------- Simulaciones ------------------------- ###
+      load(paste0(path,"/Outputs/Simulaciones/Matriz_simulaciones_final.Rdata"))
+      Matriz_simulaciones <<- Matriz_simulaciones[[1]]
+
+      ### ------------------------- Comando Fechas ------------------------- ###
+      load(paste0(path,"/Inputs/Parametros/Matriz_comando_fechas.Rdata"))
+      Fecha_min_factores_vis = min(unique(Matriz_Fechas_comando[,"Fecha_inicial"]))
+
+      ### ---- Se consolidan la base de datos de econometria y de futuros --- ###
+      ### ---- Fechas de los factores disponbiles --- ###
+      Fechas_factores <<- data.frame(Indicador = as.character(unlist(Informacion_econometria[,"Nombre"])),
+                                     Fecha_maxima = as.Date(unlist(Informacion_econometria[,"Max_fecha"])),
+                                     Categoria = as.character(unlist(Informacion_econometria[,"Categoria"])))
+
+
+      } else {
+        Matriz_datos <<- Backup_generado$Matriz_datos
+        Matriz_simulaciones <<-Backup_generado$Matriz_simulaciones[[1]]
+        Fecha_min_factores_vis = min(unique(Backup_generado$Matriz_Fechas_comando[,"Fecha_inicial"]))
+
+        Filiales_correr <<- Backup_generado$Filiales_correr
+
+        Informacion_avanzada_econ <<- Informacion_factores_econometria(Info_futuros = Backup_generado$Futuros_datos,Info_econometria = Backup_generado$Informacion_econometria)
+        ### ---- Fechas de los factores disponbiles --- ###
+        Fechas_factores <<- data.frame(Indicador = as.character(unlist(Backup_generado$Informacion_econometria[,"Nombre"])),
+                                       Fecha_maxima = as.Date(unlist(Backup_generado$Informacion_econometria[,"Max_fecha"])),
+                                       Categoria = as.character(unlist(Backup_generado$Informacion_econometria[,"Categoria"])))
+
+
+      }
+
+      ### ------------------------- Parametros ------------------------- ###
+      Base_excel <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = 1))
+      Nombres_shiny <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Nombres"))
+      Informacion_empresas <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Variables"))
+
+      Informacion_categorias_econometria_unica <<- data.frame(Categoria = c("Mercado"), id = c(5),color = c("success"),Texto = c('Principales variables financieras y macro para el negocio de ACME. Este grupo cuenta con '),Indicadores = c("variables"))
+      Graficar_box(
+        id = 3,
+        header_img = "Random.png",
+        front_title = h2(HTML('<strong><font color="#002e5b">Modelos de Proyección de Factores de Riesgo</font></strong>')),
+        tagList(
+          ### --- Estadistica descriptivas de la econometria en general --- ###
+          HTML('<p align="justify" <p style="font-family:verdana;">  &nbsp;  &nbsp;  Se exhiben las simulaciones de los factores de riesgo de ACME. Seleccione un grupo para  &nbsp;  <br>  &nbsp;  &nbsp; acceder series de tiempo y proyecciones, estadísticas descriptivas y tablas de correlaciones. <br> <br> </p></p>'),
+          box(
+            title =  HTML('<p style="font-family:verdana;"><strong><font color="white">Grupos de Factores de Riesgo</font></strong>')
+            ,solidHeader = T,status = "primary",
+            ############### -------------- Acordiones dinamicos por categorias ------------------ ###############
+            do.call(what = accordion,lapply(Filiales_correr[[1]]$Categoria[match(c("Mercado"),Filiales_correr[[1]]$Categoria,nomatch = NA)[!is.na(match(c("Mercado"),
+                                                                                                                                                        Filiales_correr[[1]]$Categoria,nomatch = NA))]], function(x){
+                                                                                                                                                          ### ------------------------- Acordion dinamico ------------------------- ###
+                                                                                                                                                          accordionItem(collapsed = F,
+                                                                                                                                                            ### ------------------------- ID dinamico ------------------------- ###
+                                                                                                                                                            id = Informacion_categorias_econometria_unica[grep(Informacion_categorias_econometria_unica[,"Categoria"], pattern = x),"id"],
+                                                                                                                                                           ### ------------------------- Titulo dinamico ------------------------- ###
+                                                                                                                                                            title = x,color = Informacion_categorias_econometria_unica[grep(Informacion_categorias_econometria_unica[,"Categoria"], pattern = x),"color"],
+                                                                                                                                                            ### ------------------------- Texto dinamico ------------------------- ###
+                                                                                                                                                            HTML(paste0('<p align="justify" <p style="font-family:verdana;">',as.character(Informacion_categorias_econometria_unica[grep(Informacion_categorias_econometria_unica[,"Categoria"], pattern = x),"Texto"]),' ','<strong><font color="#00af43">',dim(Fechas_factores[as.character(Fechas_factores[,"Categoria"]) == x,])[1]," ",
+                                                                                                                                                                        as.character(Informacion_categorias_econometria_unica[grep(Informacion_categorias_econometria_unica[,"Categoria"], pattern = x),"Indicadores"]),'.</font></strong></p></p>')),
+                                                                                                                                                            sidebarMenu(menuItem("visualizar", tabName = paste0(gsub(x,pattern = " ",replacement = "_"),"_Tabs_econometria") ,icon = icon("chevron-circle-right")),id = "tabs"))}))),
+          ### ------------------------- Panel de estadisticas ------------------------- ###
+          box(
+            title = HTML('<p style="font-family:verdana;"><strong><font color="white"> Información disponible </font></strong>'),
+            status = "primary",solidHeader = T,
+            tagList(
+              fluidRow(column(width = 12),column(width = 12,boxPad(color = "white",
+                                                                   ### ------------------------- Factores de riesgo ------------------------- ###
+                                                                   descriptionBlock(
+                                                                     text = HTML(paste0('<strong><font color="#002e5b"><p align="center" <p style="font-family:verdana;"> Factores de Riesgo </font></strong></p></p></font>')),
+                                                                     header = HTML(paste0('<strong><font color="#002e5b"><p align="center" <p style="font-family:verdana;">',round(dim(Fechas_factores))[1],'</font></strong></p></p></font></strong>')),
+                                                                     right_border = FALSE,
+                                                                     margin_bottom = TRUE
+                                                                   ),
+                                                                   ### ------------------------- Factores Actualizados ------------------------- ###
+                                                                   descriptionBlock(
+                                                                     text = HTML(paste0('<strong><font color="#f48024"><p align="center" <p style="font-family:verdana;">Actualizados </p></p></font> ')),
+                                                                     header = HTML(paste0('<strong><font color="#f48024"><p align="center" <p style="font-family:verdana;">100%</font></strong></p></p></font></strong>')),
+                                                                     right_border = FALSE,
+                                                                     margin_bottom = TRUE),
+                                                                   shinyBS::bsTooltip(id = "ID_av_desactualizado",title = paste0("El ",Nombres_shiny[grep(Nombres_shiny[,"Indice"],pattern = paste0("^",paste0(gsub(as.character(Fechas_factores[(Fechas_factores["Fecha_maxima"] > as.character(Fecha_min_factores_vis) )== FALSE,][,"Indicador"]),pattern = " ",replacement = "_"),collapse = "$|^"),"$")),"Nombre"]," con una fecha máxima ",as.character(Fechas_factores[(Fechas_factores["Fecha_maxima"] > as.character(Fecha_min_factores_vis) )== FALSE,][,"Fecha_maxima"]),'.')),
+                                                                   ### ------------------------- Desactualizados ------------------------- ###
+                                                                   descriptionBlock(
+                                                                     text = HTML(paste0('<strong><font color="#d21d1d"><p align="center" <p style="font-family:verdana;">Desactualizados </font></strong></p></p></font></strong>')),
+                                                                     header = HTML(paste0('<strong><font color="#d21d1d"><p align="center" <p style="font-family:verdana;">0%</font></strong></p></p></font></strong>')),
+                                                                     right_border = FALSE,
+                                                                     margin_bottom = FALSE)))))))
+      )
+
+
+      }
+    } else {}
+  )
+
+
+
+
+  ###########################  ------------------------- Econometria por segmentos ------------------------- ############################
+  ########### ---------------- Mercado ----------------  ###########
+  output$Mercado_Tabs_econometria <- renderUI(
+    if(!is.null(input$tabs)){
+      if(input$tabs == "Mercado_Tabs_econometria"){
+
+        ### ------------------------- Parametros ------------------------- ###
+        Base_excel <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = 1))
+        Nombres_shiny <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Nombres"))
+        Informacion_empresas <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Variables"))
+        ### ------------------------- Informacion ------------------------- ###
+        ### ------------------------- Parametros ------------------------- ###
+        if (exists("Matriz_datos") == F & Modo_backup == FALSE){
+          load(paste0(path,"/Outputs/Matriz/Matriz_datos.Rdata"))
+          Matriz_datos <<- Matriz_datos
+          load(paste0(path,'/Outputs/Matriz/Informacion_econometria.Rdata'))
+          Informacion_econometria <<- Informacion_econometria
+          load(paste0(path,'/Outputs/Matriz/Informacion_futuros.Rdata'))
+          Futuros_datos <<- Futuros_datos
+          load(paste0(path,"/Outputs/Simulaciones/Matriz_simulaciones_final.Rdata"))
+          Matriz_simulaciones = Matriz_simulaciones[[1]]
+          load(paste0(path,"/Outputs/Matriz/Matriz_datos.Rdata"))
+          Matriz_datos <<- Matriz_datos
+          Fecha_min_factores_vis = min(unique(Matriz_Fechas_comando[,"Fecha_inicial"]))
+
+          ### ---- Se consolidan la base de datos de econometria y de futuros --- ###
+          Informacion_avanzada_econ <<- Informacion_factores_econometria(Info_futuros = Futuros_datos,Info_econometria = Informacion_econometria)
+          ### ---- Fechas de los factores disponbiles --- ###
+          Fechas_factores <<- data.frame(Indicador = as.character(unlist(Informacion_econometria[,"Nombre"])),
+                                         Fecha_maxima = as.Date(unlist(Informacion_econometria[,"Max_fecha"])),
+                                         Categoria = as.character(unlist(Informacion_econometria[,"Categoria"])))
+          } else if (Modo_backup == TRUE) {
+          Matriz_datos <<- Backup_generado$Matriz_datos
+          Matriz_datos <<- Backup_generado$Matriz_datos
+
+          Informacion_econometria <<- Backup_generado$Informacion_econometria
+          Mercado_datos <<- Backup_generado$Mercado_datos
+          Matriz_simulaciones <<-Backup_generado$Matriz_simulaciones[[1]]
+          Fecha_min_factores_vis = min(unique(Backup_generado$Matriz_Fechas_comando[,"Fecha_inicial"]))
+          Filiales_correr <<- Backup_generado$Filiales_correr
+
+          Informacion_avanzada_econ <<- Informacion_factores_econometria(Info_futuros = Backup_generado$Futuros_datos,Info_econometria = Backup_generado$Informacion_econometria)
+          ### ---- Fechas de los factores disponbiles --- ###
+          Fechas_factores <<- data.frame(Indicador = as.character(unlist(Backup_generado$Informacion_econometria[,"Nombre"])),
+                                         Fecha_maxima = as.Date(unlist(Backup_generado$Informacion_econometria[,"Max_fecha"])),
+                                         Categoria = as.character(unlist(Backup_generado$Informacion_econometria[,"Categoria"])))
+
+
+        }
+
+
+        load(paste0(path,"/Outputs/Matriz/Matriz_mercado.Rdata"))
+        load(paste0(path,"/Outputs/Matriz/Matriz_datos.Rdata"))
+        Econometria_mercado_tabs = Econometria_dinamica(input=input,Grupo = "Mercado")
+        do.call(tagList, Econometria_mercado_tabs)
+      }})
+
+  ########### ---------------- Avanzadas ----------------  ###########
+  output$Opciones_avanzadas_econ <- renderUI(
+    if(!is.null(input$tabs)){
+      if(input$tabs == "Opciones_avanzadas_econ"){
+
+        ### ------------------------- Parametros ------------------------- ###
+        if (exists("Fechas_factores") == F){
+          ### ------------------------- Informacion ------------------------- ###
+          load(paste0(path,"/Outputs/Matriz/Matriz_datos.Rdata"))
+          Matriz_datos <<- Matriz_datos
+          load(paste0(path,'/Outputs/Matriz/Informacion_econometria.Rdata'))
+          Informacion_econometria <<- Informacion_econometria
+          load(paste0(path,'/Outputs/Matriz/Informacion_futuros.Rdata'))
+          Futuros_datos <<- Futuros_datos
+          Base_excel <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = 1))
+          Nombres_shiny <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Nombres"))
+          Informacion_empresas <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Variables"))
+          ### ---- Se consolidan la base de datos de econometria y de futuros --- ###
+          Informacion_avanzada_econ <<- Informacion_factores_econometria(Info_futuros = Futuros_datos,Info_econometria = Informacion_econometria)
+          ### ---- Fechas de los factores disponbiles --- ###
+          Fechas_factores <<- data.frame(Indicador = as.character(unlist(Informacion_econometria[,"Nombre"])),
+                                         Fecha_maxima = as.Date(unlist(Informacion_econometria[,"Max_fecha"])),
+                                         Categoria = as.character(unlist(Informacion_econometria[,"Categoria"])))
+        }
+        source(paste0(path,"/Codigo/Utilities/Funciones.R"),encoding = "UTF-8")
+
+        if ((Modo_backup == FALSE & Insumos_econometria_ejecutadas == F)){
+          source(paste0(path,"/Codigo/Utilities/Funciones.R"),encoding = "UTF-8")
+          progress = shiny::Progress$new()
+          on.exit(progress$close())
+          progress$set(message = "Se están cargando los datos de ", value = 0)
+
+          shinyalert("Se están cargando los datos de la herramienta.", type = "info",showConfirmButton = T, confirmButtonText = "Entiendo",showCancelButton = F)
+
+          load(paste0(path,'/Outputs/Matriz/Informacion_econometria.Rdata'))
+          load(paste0(path,'/Outputs/Matriz/Informacion_futuros.Rdata'))
+
+          ### ------ Termina de correrse, no vuelve a ejecutar lo mismo --------- ####
+          Insumos_econometria_ejecutadas <<- T
+
+        } else {
+          load(paste0(path,'/Outputs/Matriz/Informacion_econometria.Rdata'))
+          load(paste0(path,'/Outputs/Matriz/Informacion_futuros.Rdata'))
+        }
+
+        ### ---- Se consolidan la base de datos de econometria y de futuros --- ###
+        Informacion_avanzada_econ <<- Informacion_factores_econometria(Info_futuros = Futuros_datos,Info_econometria = Informacion_econometria)
+        ### ---- Fechas de los factores disponbiles --- ###
+        Fechas_factores <<- data.frame(Indicador = as.character(unlist(Informacion_econometria[,"Nombre"])),
+                                       Fecha_maxima = as.Date(unlist(Informacion_econometria[,"Max_fecha"])),
+                                       Categoria = as.character(unlist(Informacion_econometria[,"Categoria"])))
+
+        box(title = h2(HTML('<strong><font color="#002e5b">Econometría</font></strong>')),width = "1000px",height = "2000px",
+          tagList(
+            widgetUserBox(title = "Crudos nacionales", type = 2,src = "Petroleo.jpg",color = "aqua-active",
+                renderDataTable(rownames = FALSE,selection = list(target = "cell"),escape = F,options = list(dom = 't',searching = FALSE, paging = T,ordering = FALSE,scrollY = "150px"),(Fechas_factores[Fechas_factores[,"Categoria"] == "Crudos nacionales",c(1,2)])),
+                footer = materialSwitch(inputId = "Simular_crudos_nacionales",label = "Simular",width = "140px",right = F,value = T,status = "success")),
+            ### ------------- Petroquimicos ------------- ###
+            widgetUserBox(title = "Crudos internacionales", type = 2,src = "Petroleo.jpg",color = "aqua-active",
+                renderDataTable(rownames = FALSE,selection = list(target = "cell"),escape = F,options = list(dom = 't',searching = FALSE, paging = T,ordering = FALSE,scrollY = "150px"),(Fechas_factores[Fechas_factores[,"Categoria"] == "Crudos internacionales",c(1,2)])),
+                footer = materialSwitch(inputId = "Simular_crudos_internacionales",label = "Simular",width = "140px",right = F,value = T,status = "success")),
+            ### ------------- Petroquimicos ------------- ###
+            widgetUserBox(title = "Refinados", type = 2,src = "Petroleo.jpg",color = "primary",
+                renderDataTable(rownames = FALSE,selection = list(target = "cell"),escape = F,options = list(dom = 't',searching = FALSE, paging = T,ordering = FALSE,scrollY = "150px"),(Fechas_factores[Fechas_factores[,"Categoria"] == "Refinados",c(1,2)])),
+                footer = materialSwitch(inputId = "Simular_refinados",label = "Simular",width = "140px",right = F,value = T, status = "success")),
+            ### ------------- Refinados ------------- ###
+            widgetUserBox(title = "Petroquímicos", type = 2,src = "Petroleo.jpg",color = "primary",
+                renderDataTable(rownames = FALSE,selection = list(target = "cell"),escape = F,options = list(dom = 't',searching = FALSE, paging = T,ordering = FALSE,scrollY = "150px"),(Fechas_factores[Fechas_factores[,"Categoria"] == "Petroquimicos",c(1,2)])),
+                footer = materialSwitch(inputId = "Simular_petroquimicos",label = "Simular",width = "140px",right = F,value = T, status = "success")),
+            ### ------------- Mercado ------------- ###
+            widgetUserBox(title = "Mercado", type = 2,src = "Petroleo.jpg",color = "red",
+                renderDataTable(rownames = FALSE,selection = list(target = "cell"),escape = F,options = list(dom = 't',searching = FALSE, paging = T,ordering = FALSE,scrollY = "150px"),(Fechas_factores[Fechas_factores[,"Categoria"] == "Mercado",c(1,2)])),
+                footer = materialSwitch(inputId = "Simular_mercado",label = "Simular",width = "140px",right = F,value = T,status = "success")),
+            ### ------------- Mercado ------------- ###
+            boxPlus(
+                 title = "Simulación",status = "success",solidHeader = FALSE,collapsible = TRUE,
+                 p(HTML("Permite al usuario realizar simulaciones de los principales grupos de factores de riesgo de manera independiente a los modelos de las empresas.<br>"),
+                   sliderTextInput(inputId = "Horizonte_econometria_seleccionado",label = "Horizonte:",grid = TRUE,selected = seq(as.Date(Fechas_factores[grep(Fechas_factores[,"Indicador"],pattern = "CFR WCSA"),"Fecha_maxima"]),length.out = 24,by="month")[round(length(seq(as.Date(paste0(rownames(as.data.frame(table(substr(Fechas_factores[,"Fecha_maxima"],0,7))[order(table(substr(Fechas_factores[,"Fecha_maxima"],0,7)),decreasing = T)][2])),"-01")),length.out = 24,by="month"))/2)],
+                   force_edges = F,width = "600px",choices = seq(as.Date(Fechas_factores[grep(Fechas_factores[,"Indicador"],pattern = "CFR WCSA"),"Fecha_maxima"]),length.out = 24,by="month")),
+                 sidebarMenu(menuItem(text = "Simular", tabName = "Iniciar",icon = icon("play-circle")),id = "tabs"))),
+            renderUI({
+              if (is.null(input$Simular_crudos_nacionales) != T){
+                Simular_auxiliar <<- T
+                Econometria_panel_avanzadas = NULL
+                Econometria_panel_avanzadas = as.list(Econometria_panel_avanzadas)
+                Econometria_panel_avanzadas[[1]] = NULL
+                Insumos_shiny_econometria = NULL
+                Categorias_shiny_econometria = NULL
+                Categorias_correr_econometria = NULL
+                if (input$Simular_crudos_nacionales == T){
+                  Categorias_correr_econometria = cbind(Categorias_correr_econometria,'Crudos nacionales')
+                  Categorias_shiny_econometria = rbind(Categorias_shiny_econometria,Fechas_factores[Fechas_factores[,"Categoria"] == "Crudos nacionales",])
+                }
+                if (input$Simular_crudos_internacionales == T){
+                  Categorias_correr_econometria = cbind(Categorias_correr_econometria,'Crudos internacionales')
+                  Categorias_shiny_econometria = rbind(Categorias_shiny_econometria,Fechas_factores[Fechas_factores[,"Categoria"] == "Crudos internacionales",])
+                }
+
+                if (input$Simular_refinados == T){
+                  Categorias_correr_econometria = cbind(Categorias_correr_econometria,'Refinados')
+                  Categorias_shiny_econometria = rbind(Categorias_shiny_econometria,Fechas_factores[Fechas_factores[,"Categoria"] == "Refinados",])
+
+                }
+
+                if (input$Simular_petroquimicos == T){
+                  Categorias_correr_econometria = cbind(Categorias_correr_econometria,'Petroquimicos')
+                  Categorias_shiny_econometria = rbind(Categorias_shiny_econometria,Fechas_factores[Fechas_factores[,"Categoria"] == "Petroquimicos",])
+                }
+
+                if (input$Simular_mercado == T){
+                  Categorias_correr_econometria = cbind(Categorias_correr_econometria,'Mercado')
+                  Categorias_shiny_econometria = rbind(Categorias_shiny_econometria,Fechas_factores[Fechas_factores[,"Categoria"] == "Mercado",])
+                  }
+                }
+              Insumos_shiny_econometria$Fecha_inicial = as.Date(Fechas_factores[grep(Fechas_factores[,"Indicador"],pattern = "CFR WCSA"),"Fecha_maxima"])
+              Insumos_shiny_econometria$Horizonte = length(seq(from=as.Date(Insumos_shiny_econometria$Fecha_inicial), to=as.Date(input$Horizonte_econometria_seleccionado), by='month'))
+              Insumos_shiny_econometria$Categoria = as.character(Categorias_correr_econometria)
+              Insumos_shiny_econometria$Factores = Categorias_shiny_econometria
+              Control = Insumos_shiny_econometria
+              Econometria_panel_avanzadas[[1]] = Control
+              Econometria_panel_avanzadas <<- Econometria_panel_avanzadas
+              tagList()})
+
+            ))
+
+        }
+      }
+    )
+
+
+
+
+############### --------- Etapa 2: Correr Sensilidades y P&GS --------- ##############
+output$Continuar_analisis <- renderUI(
+  if(!is.null(input$tabs)){
+    if(input$tabs == "Continuar_analisis"){
+      Graficar_box(
+        id = 300,
+        header_img = "automation.jpg",
+        front_title = HTML('<strong><font color="002e5b">Análisis de Riesgo</font></strong>'),
+        tagList(box(width = 1000,height = 250,tagList(HTML('<b></b><br/><p align="justify" <p style="font-family:verdana;">El modelo de riesgo toma las simulaciones de los factores de riesgo y calcula presupuestos de FC y PyG hasta el horizonte de presupuesto, para cada simulación. Con esto, se estiman sensibilidades, riesgo, e impacto de coberturas.<br> <br> </p></p>'),sidebarMenu(menuItem(text = "Continuar", tabName = "Modelacion_principal"),id = "tabs")) ))
+        )
+
+      }
+    }
+  )
+
+
+
+
+  ################################## ---------------- Modelos ----------------  ##################################
+  output$Modelacion_principal <- renderUI(
+    if(!is.null(input$tabs)){
+      if(input$tabs == "Modelacion_principal"){
+        if (Modo_backup == FALSE & Corrio_total == F){
+
+          ########## ---------------------------- Funciones ------------------------- ##########
+          source(paste0(path,"/Codigo/Utilities/Funciones.R"),encoding = "UTF-8")
+          source(paste0(path,"/Codigo/Utilities/Futilidad.R"),encoding = "UTF-8")
+
+          ### ---- Codigo que centraliza todo --- ###
+          Agregacion_riesgo_empresas_herramienta_amb <<- new.env()
+          ### ---------- Filiales correr ------------ ###
+          Informacion_empresas <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Variables"))
+          Base_excel = as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = 1))
+          load(paste0(path,"/Inputs/Parametros/Filiales_correr.Rdata"))
+          assign(x = "Empresas",value = Filiales_correr[[1]]$Empresas$Empresas,envir = Agregacion_riesgo_empresas_herramienta_amb)
+          ### --- Definicion de Matriz de simulaciones en ambiente global --- ###
+          load(paste0(path,"/Outputs/Simulaciones/Matriz_simulaciones_final.Rdata"))
+          ### --- Definicion de Matriz de simulaciones en ambiente global --- ###
+          Matriz_simulaciones <<- Matriz_simulaciones[[1]]
+          #### ----- Se cargan los modelos de las empresas ----- ####
+          assign(x = "Shiny",value = F,envir = Agregacion_riesgo_empresas_herramienta_amb)
+
+
+          #### ------- Se carga la funcion que agrega -------- #####
+          Guardar_princial <<- c("Menu_cargado_inicial","Resultados_agregacion_teorica","Resultados_agregacion_contable","Corrio_total_tiempo","input","Informacion_empresas","Fechas_Empresas_cargadas","Futuros_datos","Informacion_econometria","Nombres_shiny",'Matriz_Fechas_comando',"progress","Funciones_de_herramienta_guardar","Matriz_Fechas","Agregacion_riesgo_empresas_herramienta_amb","path","Modo_backup","Menu_cargado_inicial","Matriz_Fechas","Fechas_factores","Menu_econometria_dinamico","Fecha_analisis","Ajustar_simulaciones","Media_futuros","Simulaciones","Guardar_princial","Simular_auxiliar","Corrio_total","Filiales_correr","Matriz_datos","Shiny","Insumos_empresas_ejecutadas","Insumos_econometria_ejecutadas","Econometria_principal_corrida_ejecutada")
+          Parametros_empresas <<- c("Parametros","inputsReficar","param_hocol","Lista_Inputs_CENIT","Lista_Inputs_OCENSA","Exceles_Ho","ListaInsumos_esenttia")
+          Variables_guardar <<- c("Matriz_Fechas",Guardar_princial,"Agregacion_riesgo_empresas_herramienta_amb","Fecha_analisis","Menu_econometria_dinamico","A1","Base_excel","Matriz_tiempo","Filiales_correr","Empresas","Simulaciones","Matriz_simulaciones","Variables_guardar","TipoProduccion","Parametros_empresas",Parametros_empresas,"Informacion_empresas",c(as.character(Informacion_empresas[,"Insumos"])),c(as.character(Informacion_empresas[,"Cambios"])),as.vector(lsf.str()))
+          #### ------------ Se carga la matriz de fechas que comanda todo ----------- ####
+          load(paste0(path,"/Inputs/Insumos/MatFechas.Rdata"))
+          Matriz_Fechas <<- Matriz_Fechas
+          ### ---------- Carga ----------- #####
+
+          source(paste0(path,"/Inputs/Empresas/Cargar_empresas.R"),encoding = "UTF-8")
+
+          #### ------- Se carga la funcion que agrega -------- #####
+          source(paste0(path,"/Codigo/Utilities/Agregacion_herramienta.R"),encoding = "UTF-8")
+
+          load(paste0(path,"/Outputs/Simulaciones/Matriz_simulaciones_final.Rdata"))
+          ### --- Definicion de Matriz de simulaciones en ambiente global --- ###
+
+
+
+
+          Resultados_agregacion_total_empresas_herramienta <<- Agregacion_sensibilidades(Simulaciones = Matriz_simulaciones[[1]],
+                                                                                         Matriz_Fechas = Matriz_Fechas,
+                                                                                         Informacion_empresas = Informacion_empresas,
+                                                                                         Fecha_inicial = Filiales_correr[[1]]$Fecha_inicial,
+                                                                                         Participacion_accionaria = Participacion_empresas(Excel = paste0(path,"/Inputs/Parametros/Parametros.xlsx")),
+                                                                                         Fecha_final = Filiales_correr[[1]]$Fecha_minima,
+                                                                                         Empresas = Filiales_correr[[1]]$Empresas$Empresas,Intereses = F,Shiny = T)
+
+
+          save(Resultados_agregacion_total_empresas_herramienta,file = paste0(path,"Outputs/Resultados/Resultados_agregacion_contable_total.Rdata"))
+          ######## ---------- Se carga todas las empresas guardas en el ambiente local ----------- ####
+          Separar_resultados_herramienta(Insumos_resultados = Resultados_agregacion_total_empresas_herramienta)
+          #load(paste0(path,"Inputs/Ambientes/Ambiente_empresas_corridas.Rdata"),envir = Ambiente_empresas_corridas)
+          load(paste0(path,"/Inputs/Insumos/MatFechas.Rdata"))
+          Matriz_Fechas <<- Matriz_Fechas
+
+          load(paste0(path,"Outputs/Resultados/Resultados_agregacion_contable.Rdata"))
+          Resultados_agregacion_contable <<-Resultados_agregacion_contable
+          load(paste0(path,"Outputs/Resultados/Resultados_agregacion_teorica.Rdata"))
+          Resultados_agregacion_teorica<<-Resultados_agregacion_teorica
+
+          load(paste0(path,"/Outputs/Simulaciones/Matriz_simulaciones_final.Rdata"))
+          ### --- Definicion de Matriz de simulaciones en ambiente global --- ###
+          Matriz_simulaciones <<- Matriz_simulaciones
+
+          load(paste0(path,'/Outputs/Matriz/Matriz_futuros.Rdata'))
+          Matriz_futuros <<- Matriz_futuros
+          #### ------- copia de seguridad ----- ####
+          save.image(file = paste0(path,"Outputs/Backup/",paste0("Backup_",Sys.Date(),".Rdata")))
+
+        } else {
+          source(paste0(path,"/Codigo/Utilities/Funciones.R"),encoding = "UTF-8")
+          Informacion_empresas <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Variables"))
+          Base_excel <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = 1))
+          Filiales_correr <<- Backup_generado$Filiales_correr
+        }
+
+        Corrio_total <<- T
+
+        Graficar_box(
+          id = 3,
+          header_img = "automation.jpg",
+          front_title = h2(HTML('<strong><font color="#002e5b">Análisis de Riesgo</font></strong>')),
+          tagList(
+            timelineBlock(
+              timelineEnd(color = "danger"),
+              timelineLabel(HTML('<strong><font color="white"> &nbsp  &nbsp &nbsp Estructura del análisis &nbsp &nbsp  &nbsp</font></strong>'), color = "light-blue"),
+              timelineItem(
+                title =  HTML('<p align="justify" <p style="font-family:verdana;">Se exhiben tres líneas de análisis: <strong>(i)</strong> “Sensibilidades” estima el impacto que tienen movimientos unitarios de los factores de riesgo sobre el presupuesto; <strong>(ii)</strong> “Riesgo” cuantifica el riesgo, al mezclar las volatilidades y correlaciones de las factores de riesgo con las sensibilidades; <strong>(iii)</strong> “Coberturas” exhibe el impacto sobre el riesgo al incorporar portafolios de cobertura. Se sugiere correr en este orden, pero el usuario puede correr en cualquier orden. <br> <br> </p></p>'),
+                icon = "project-diagram", border = FALSE,
+                color = "light-blue"),
+              timelineLabel(HTML('<strong><font color="white">  &nbsp &nbsp &nbsp Sensibilidades  &nbsp &nbsp &nbsp</font></strong>'), color = "purple"),
+              timelineItem(
+                title = HTML('<p align="justify" <p style="font-family:verdana;">Análisis del impacto que tienen cambios unitarios en los factores de riesgo sobre el presupuesto de utilidad antes de impuestos y flujo de caja.<br> <br> </p></p>'),
+                icon = "plus", border = FALSE,
+                color = "purple",
+                sidebarMenu(menuItem("Ver sensibilidades", tabName = "Sensibilidades"),id = "tabs")),
+              timelineLabel(HTML('<strong><font color="white"> &nbsp &nbsp &nbsp Riesgo  &nbsp &nbsp &nbsp</font></strong>'), color = "red"),
+              timelineItem(
+                title =HTML('<p align="justify" <p style="font-family:verdana;"> Distribución de probabilidad del presupuesto y estimación de la contribución de cada factor al riesgo total. <br> <br> </p></p>'),icon = 'exclamation', color = "red",
+                border = FALSE,
+                sidebarMenu(menuItem("Ver riesgo", tabName = "Riesgo"),id = "tabs")
+
+              ),
+              timelineLabel(HTML('<strong><font color="white"> &nbsp &nbsp &nbsp Coberturas &nbsp &nbsp &nbsp </font></strong>'), color = "green"),
+              timelineItem(
+                title =HTML('<p align="justify" <p style="font-family:verdana;"> Estimación del impacto de coberturas sobre el riesgo. <br> <br> </p></p>'),icon = 'shield', color = "Coberturas",
+                border = FALSE,
+                sidebarMenu(menuItem("Coberturas", tabName = "Coberturas"),id = "tabs")
+
+              ),
+
+              timelineStart(color = "gray")
+            )
+          )
+
+        )
+
+      }})
+
+
+  ################################## ---------------- Modelos ----------------  ##################################
+  output$Ejecutar_temporales <- renderUI(
+    if(!is.null(input$tabs)){
+      if(input$tabs == "Ejecutar_temporales"){
+        if (Modo_backup == FALSE & Corrio_total_tiempo == F){
+
+          ########## ---------------------------- Funciones ------------------------- ##########
+          source(paste0(path,"/Codigo/Utilities/Funciones.R"),encoding = "UTF-8")
+          source(paste0(path,"/Codigo/Utilities/Futilidad.R"),encoding = "UTF-8")
+
+          ### ---- Codigo que centraliza todo --- ###
+          Agregacion_riesgo_empresas_herramienta_amb <<- new.env()
+          ### ---------- Filiales correr ------------ ###
+          Informacion_empresas <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Variables"))
+          Base_excel = as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = 1))
+          load(paste0(path,"/Inputs/Parametros/Filiales_correr.Rdata"))
+          assign(x = "Empresas",value = Filiales_correr[[1]]$Empresas$Empresas,envir = Agregacion_riesgo_empresas_herramienta_amb)
+          ### --- Definicion de Matriz de simulaciones en ambiente global --- ###
+          load(paste0(path,"/Outputs/Simulaciones/Matriz_simulaciones_final.Rdata"))
+          ### --- Definicion de Matriz de simulaciones en ambiente global --- ###
+          Matriz_simulaciones <<- Matriz_simulaciones[[1]]
+          #### ----- Se cargan los modelos de las empresas ----- ####
+          assign(x = "Shiny",value = F,envir = Agregacion_riesgo_empresas_herramienta_amb)
+
+
+          #### ------- Se carga la funcion que agrega -------- #####
+          Guardar_princial <<- c("Menu_cargado_inicial","Resultados_agregacion_teorica","Resultados_agregacion_contable","Corrio_total_tiempo","input","Informacion_empresas","Fechas_Empresas_cargadas","Futuros_datos","Informacion_econometria","Nombres_shiny",'Matriz_Fechas_comando',"progress","Funciones_de_herramienta_guardar","Matriz_Fechas","Agregacion_riesgo_empresas_herramienta_amb","path","Modo_backup","Menu_cargado_inicial","Matriz_Fechas","Fechas_factores","Menu_econometria_dinamico","Fecha_analisis","Ajustar_simulaciones","Media_futuros","Simulaciones","Guardar_princial","Simular_auxiliar","Corrio_total","Filiales_correr","Matriz_datos","Shiny","Insumos_empresas_ejecutadas","Insumos_econometria_ejecutadas","Econometria_principal_corrida_ejecutada")
+          Parametros_empresas <<- c("Parametros","inputsReficar","param_hocol","Lista_Inputs_CENIT","Lista_Inputs_OCENSA","Exceles_Ho","ListaInsumos_esenttia")
+          Variables_guardar <<- c("Matriz_Fechas",Guardar_princial,"Agregacion_riesgo_empresas_herramienta_amb","Fecha_analisis","Menu_econometria_dinamico","A1","Base_excel","Matriz_tiempo","Filiales_correr","Empresas","Simulaciones","Matriz_simulaciones","Variables_guardar","TipoProduccion","Parametros_empresas",Parametros_empresas,"Informacion_empresas",c(as.character(Informacion_empresas[,"Insumos"])),c(as.character(Informacion_empresas[,"Cambios"])),as.vector(lsf.str()))
+          #### ------------ Se carga la matriz de fechas que comanda todo ----------- ####
+          load(paste0(path,"/Inputs/Insumos/MatFechas.Rdata"))
+          Matriz_Fechas <<- Matriz_Fechas
+          ### ---------- Carga ----------- #####
+
+
+          #### ------- Se carga la funcion que agrega -------- #####
+          source(paste0(path,"/Codigo/Utilities/Agregacion_herramienta_t.R"),encoding = "UTF-8")
+
+          load(paste0(path,"/Outputs/Simulaciones/Matriz_simulaciones_final.Rdata"))
+          ### --- Definicion de Matriz de simulaciones en ambiente global --- ###
+          Resultados_agregacion_total_empresas_herramienta_t <<- Agregacion_sensibilidades_temporales(Simulaciones = Matriz_simulaciones[[1]],
+                                                                                                      Matriz_Fechas = Matriz_Fechas,
+                                                                                                      Informacion_empresas = Informacion_empresas,
+                                                                                                      Fecha_inicial = Filiales_correr[[1]]$Fecha_inicial,
+                                                                                                      Participacion_accionaria = Participacion_empresas(Excel = paste0(path,"/Inputs/Parametros/Parametros.xlsx")),
+                                                                                                      Fecha_final = Filiales_correr[[1]]$Fecha_minima,
+                                                                                                      Empresas = Filiales_correr[[1]]$Empresas$Empresas,Intereses = T,Shiny = T)
+
+          Corrio_total_tiempo <<- T
+
+          save(Resultados_agregacion_total_empresas_herramienta_t,file = paste0(path,"Outputs/Resultados/Resultados_agregacion_contable_dinamica_total.Rdata"))
+          ######## ---------- Se carga todas las empresas guardas en el ambiente local ----------- ####
+          Separar_resultados_herramienta_t(Insumos_resultados = Resultados_agregacion_total_empresas_herramienta_t)
+          #load(paste0(path,"Inputs/Ambientes/Ambiente_empresas_corridas.Rdata"),envir = Ambiente_empresas_corridas)
+          load(paste0(path,"/Inputs/Insumos/MatFechas.Rdata"))
+          Matriz_Fechas <<- Matriz_Fechas
+
+          load(paste0(path,"Outputs/Resultados/Resultados_agregacion_dinamica_contable.Rdata"))
+          Resultados_agregacion_dinamica_contable <<-Resultados_agregacion_dinamica_contable
+          load(paste0(path,"Outputs/Resultados/Resultados_agregacion_dinamica_teorica.Rdata"))
+          Resultados_agregacion_dinamica_teorica <<- Resultados_agregacion_dinamica_teorica
+
+          load(paste0(path,"/Outputs/Simulaciones/Matriz_simulaciones_final.Rdata"))
+          ### --- Definicion de Matriz de simulaciones en ambiente global --- ###
+          Matriz_simulaciones <<- Matriz_simulaciones
+
+          load(paste0(path,'/Outputs/Matriz/Matriz_futuros.Rdata'))
+          Matriz_futuros <<- Matriz_futuros
+          #### ------- copia de seguridad ----- ####
+          save.image(file = paste0(path,"Outputs/Backup/",paste0("Backup_",Sys.Date(),".Rdata")))
+
+        } else {
+          source(paste0(path,"/Codigo/Utilities/Funciones.R"),encoding = "UTF-8")
+          Informacion_empresas <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Variables"))
+          Base_excel <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = 1))
+          Filiales_correr <<- Backup_generado$Filiales_correr
+        }
+        Corrio_total_tiempo <<- T
+
+        shinyalert(html = T,title = "Las sensibilidades temporales se construyeron de manera exitosa.",timer = 10500,text = HTML(paste0('<ul class="sidebar-menu">
+  <li>
+                                                                                                                                       <a href="#shiny-tab-Sensibilidades" data-toggle="tab" data-value="Sensibilidades">
+                                                                                                                                       <i class="fa fa-plus"></i>
+                                                                                                                                       <span>Sensibilidades</span>
+                                                                                                                                       </a>
+                                                                                                                                       </li>
+                                                                                                                                       <div id="tabs" class="sidebarMenuSelectedTabItem" data-value="null"></div>
+                                                                                                                                       </ul>')),
+                   type = "success",showConfirmButton = T, confirmButtonText = "Entiendo",showCancelButton = F)
+
+        box(title = HTML('<strong><font color="white">Líneas de Análisis</font></strong>'),width = 1000,height = 1000,status = "primary",solidHeader = T,
+            tagList(
+              HTML('<p align="justify" <p style="font-family:verdana;">Se exhiben cuatro líneas de análisis: <strong>(i)</strong> “Presupuestos” compara agregados (Ingresos, Costos y Utilidad) del insumo de las empresas con los modelos desarrollados; <strong>(ii)</strong> “Sensibilidades” estima el impacto que tienen movimientos unitarios de los factores de riesgo sobre el presupuesto; <strong>(iii)</strong> “Riesgo” cuantifica el riesgo, al mezclar las volatilidades y correlaciones de las factores de riesgo con las sensibilidades; <strong>(iv)</strong> “Coberturas” exhibe el impacto sobre el riesgo al incorporar portafolios de cobertura. Se sugiere correr en este orden, pero el usuario puede correr en cualquier orden. <br> <br> </p></p>'),
+              ### ---------- Presupuestos ---------- ###
+              box(title = HTML('<strong><font color="white"><strong>(i)</strong> Presupuestos</font></strong>'), status = "primary", solidHeader = TRUE,
+                  collapsible = F,
+                  HTML('<p align="justify" <p style="font-family:verdana;"> Comparación de presupuestos del modelo de cada empresa y
+                       el modelo desarrollado para la cuantificación del riesgo. <br> <br> </p></p>'),
+                  sidebarMenu(menuItem("Presupuestos", tabName = "Modelos",icon = icon("check-circle")),id = "tabs")
+                  ),
+              ### ---------- Sensibilidadees ---------- ###
+              box(title =  HTML('<strong><font color="white"><strong>(ii)</strong> Sensibilidades </font></strong>'), status = "info", solidHeader = TRUE,
+                  collapsible = F,
+                  HTML('<p align="justify" <p style="font-family:verdana;">Análisis del impacto que tienen cambios unitarios en los factores de riesgo sobre el presupuesto de utilidad antes de impuestos y flujo de caja.<br> <br> </p></p>'),
+                  sidebarMenu(menuItem("Sensibilidades", tabName = "Sensibilidades",icon = icon("plus")),id = "tabs")
+              ),
+              ### ---------- Riesgo ---------- ###
+              box(title = HTML('<strong><font color="white"><strong>(iii)</strong> Riesgo </font></strong>'), status = "danger", solidHeader = TRUE,
+                  collapsible = F,
+                  HTML('<p align="justify" <p style="font-family:verdana;"> Distribución de probabilidad del presupuesto y estimación de la contribución de cada factor al riesgo total. <br> <br> </p></p>'),
+                  sidebarMenu(menuItem("Riesgo", tabName = "Riesgo",icon = icon("exclamation-circle")),id = "tabs")
+              ),
+              ### ---------- Coberturas ---------- ###
+              box(title = HTML('<strong><font color="white"><strong>(iv)</strong> Coberturas </font></strong>'), status = "success", solidHeader = TRUE,
+                  collapsible = F,
+                  HTML('<p align="justify" <p style="font-family:verdana;"> Estimación del impacto de coberturas sobre el riesgo. <br> <br> </p></p>'),
+                  sidebarMenu(menuItem("Coberturas", tabName = "Coberturas",icon = icon("shield")),id = "tabs")
+              )
+            ))
+
+      }})
+
+
+
+  ################################## ---------------- Sensibilidades ----------------  ##################################
+  output$Sensibilidades <- renderUI(
+    if(!is.null(input$tabs)){
+      if(input$tabs == "Sensibilidades"){
+        if (Modo_backup == F){
+
+          ################################## ---------------- Contable ----------------  #################################
+          ### --- Output de funcion: Agregacion_contable -> Agregacion contable Paralela --- ###
+          load(paste0(path,"/Outputs/Resultados/Resultados_agregacion_contable.Rdata"))
+          Resultados_agregacion_contable <<- Resultados_agregacion_contable
+
+          ### --- Output de funcion: Agregacion_contable -> Agregacion Teórica Paralela --- ###
+          load(paste0(path,"/Outputs/Resultados/Resultados_agregacion_teorica.Rdata"))
+          Resultados_agregacion_teorica <<- Resultados_agregacion_teorica
+
+          # ### --- Output de funcion: Agregacion_contable_dinamica -> Agregacion contable dinamica--- ###
+          # load(paste0(path,"/Outputs/Resultados/Agregacion_contable_dinamica.Rdata"))
+          # Resultados_agregacion_dinamica <<- Resultados_agregacion_dinamica
+
+          ### ---- Matriz simulaciones ---- ###
+          load(paste0(path,"/Outputs/Simulaciones/Matriz_simulaciones_final.Rdata"))
+          Matriz_simulaciones <<- Matriz_simulaciones[[1]]
+
+          ### ---------- Filiales correr ------------ ###
+          load(paste0(path,"/Inputs/Parametros/Filiales_correr.Rdata"))
+          Filiales_correr <<- Filiales_correr
+
+          load(paste0(path,"/Inputs/Insumos/MatFechas.Rdata"))
+          Matriz_Fechas <<- Matriz_Fechas
+
+          ### ------- Empresas Activas i-esima econometria -------- ####
+          Empresas_activas_segmentos <<- as.character(Filiales_correr[[1]]$Empresas$Empresas)
+
+          Vector_empresas_ejecutar_tabs_sensibilidades <<- Vector_empresas_ejecutar(Empresas =  Filiales_correr[[1]]$Empresas$Empresas,Agregar = T,Coberturas = F)
+          } else {
+            print("Cargando Backup")
+            ################################## ---------------- Contable ----------------  #################################
+            ### --- Output de funcion: Agregacion_contable -> Agregacion contable Paralela --- ###
+            Resultados_agregacion_contable <<- Backup_generado$Resultados_agregacion_contable
+            ### --- Output de funcion: Agregacion_contable -> Agregacion Teórica Paralela --- ###
+            Resultados_agregacion_teorica <<- Backup_generado$Resultados_agregacion_teorica
+            ### ---- Matriz simulaciones ---- ###
+            Matriz_simulaciones <<- Backup_generado$Matriz_simulaciones[[1]]
+            ### ---------- Filiales correr ------------ ###
+            #Filiales_correr <<- Backup_generado$Filiales_correr
+            Matriz_Fechas <<- Backup_generado$Matriz_Fechas
+            ### ------- Empresas Activas i-esima econometria -------- ####
+            Empresas_activas_segmentos <<- as.character(Backup_generado$Filiales_correr[[1]]$Empresas$Empresas)
+            ### ------- Empresas Activas  -------- ####
+            Vector_empresas_ejecutar_tabs_sensibilidades <<- Vector_empresas_ejecutar(Empresas =  Backup_generado$Filiales_correr[[1]]$Empresas$Empresas,Agregar = T,Coberturas = F)
+            }
+
+
+        Informacion_empresas <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Variables"))
+        Base_excel <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = 1))
+        Nombres_shiny <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Nombres"))
+
+
+        ### --- Cargar cambios y Cargar unidades ---- ###
+        Base_nombres_unidades <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = 3))
+        ### ------- Informacion acerca de los segmentos --------- ###
+        Segmentos_empresas_informacion <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Segmentos"))
+
+        Segmentos_empresas_load <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Segmentos"))
+
+        ### ------- Participación accionaria -------- ###
+        Participacion_accionaria_empresas <<- Participacion_empresas(Excel = paste0(path,"/Inputs/Parametros/Parametros.xlsx"))
+
+        ### ------- Patrimonios: Desagregados -------- ###
+        Patrimonios_completos <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Patrimonios"))
+        Cambios_totales_factores_riesgo <<- Cambios_totales(Base_excel = Base_excel)
+
+        ############ ------------ Visualización de los resultados ------------ ############
+        Sensibilidades_tabs = lapply(Vector_empresas_ejecutar_tabs_sensibilidades,function(y){Sensibilidades_empresas(x = y,input = input,session = session)})
+        do.call(tabsetPanel, Sensibilidades_tabs)
+        }})
+
+
+  ################################## ---------------- Riesgo ----------------  ##################################
+  output$Riesgo <- renderUI(
+    if(!is.null(input$tabs)){
+      if(input$tabs == "Riesgo"){
+        source(paste0(path,"/Codigo/Utilities/Futilidad.R"),encoding = "UTF-8")
+
+        if(Modo_backup == F){
+          load(paste0(path,"/Inputs/Insumos/MatFechas.Rdata"))
+          Matriz_Fechas <<- Matriz_Fechas
+          ### --- Definicion de Matriz de simulaciones en ambiente global --- ###
+          load(paste0(path,"/Outputs/Simulaciones/Matriz_simulaciones_final.Rdata"))
+          ### --- Definicion de Matriz de simulaciones en ambiente global --- ###
+          Matriz_simulaciones <<- Matriz_simulaciones[[1]]
+
+          load(paste0(path,"/Inputs/Parametros/Filiales_correr.Rdata"))
+          Filiales_correr <<- Filiales_correr
+
+          ### --- Output de funcion: Agregacion_contable -> Agregacion contable Paralela --- ###
+          load(paste0(path,"/Outputs/Resultados/Resultados_agregacion_contable.Rdata"))
+          Resultados_agregacion_contable <<- Resultados_agregacion_contable
+
+          ### --- Output de funcion: Agregacion_contable -> Agregacion Teórica Paralela --- ###
+          load(paste0(path,"/Outputs/Resultados/Resultados_agregacion_teorica.Rdata"))
+          Resultados_agregacion_teorica <<- Resultados_agregacion_teorica
+
+          ### --- Output de funcion: Agregacion_contable_dinamica -> Agregacion contable dinamica--- ###
+          #load(paste0(path,"/Outputs/Resultados/Agregacion_contable_dinamica.Rdata"))
+          #Resultados_agregacion_dinamica <<- Resultados_agregacion_dinamica
+          Empresas_activas_segmentos <<- as.character(Filiales_correr[[1]]$Empresas$Empresas)
+
+          Vector_empresas_ejecutar_tabs_riesgo = Vector_empresas_ejecutar(Empresas =  Filiales_correr[[1]]$Empresas$Empresas,Coberturas = F)
+          } else {
+          Matriz_Fechas <<- Backup_generado$Matriz_Fechas
+          ### --- Definicion de Matriz de simulaciones en ambiente global --- ###
+          Matriz_simulaciones <<- Backup_generado$Matriz_simulaciones[[1]]
+
+          Filiales_correr <<- Backup_generado$Filiales_correr
+
+          ### --- Output de funcion: Agregacion_contable -> Agregacion contable Paralela --- ###
+          Resultados_agregacion_contable <<- Backup_generado$Resultados_agregacion_contable
+
+          ### --- Output de funcion: Agregacion_contable -> Agregacion Teórica Paralela --- ###
+          Resultados_agregacion_teorica <<- Backup_generado$Resultados_agregacion_teorica
+          Empresas_activas_segmentos <<- as.character(Backup_generado$Filiales_correr[[1]]$Empresas$Empresas)
+
+          Vector_empresas_ejecutar_tabs_riesgo <<- Vector_empresas_ejecutar(Empresas =  Backup_generado$Filiales_correr[[1]]$Empresas$Empresas,Coberturas = F)
+        }
+
+
+        ### ------- Participación accionaria -------- ###
+        Participacion_accionaria_empresas <<- Participacion_empresas(Excel = paste0(path,"/Inputs/Parametros/Parametros.xlsx"))
+        ######################## ------------- Patrimonios: Agregacion ----------------##########################
+
+        Informacion_empresas <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Variables"))
+        Base_excel <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = 1))
+        Nombres_shiny <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Nombres"))
+        Segmentos_empresas_informacion <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Segmentos"))
+        Patrimonios_completos <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Patrimonios"))
+        Patrimonio_agregado <<- Patrimonios_completos[grep(as.character(Patrimonios_completos[,"Empresa"]),pattern = "Patrimonio_Agregado"),"Patrimonio"]
+        Segmentos_empresas_load <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Segmentos"))
+
+        ######################## ------------- Resultados ----------------##########################
+        Riesgo_tabs = lapply(Vector_empresas_ejecutar_tabs_riesgo,function(y){Riesgo_empresas(x = y,input = input)})
+        do.call(tabsetPanel, Riesgo_tabs)
+      }})
+
+
+
+  ################################## ---------------- Coberturas ----------------  ##################################
+  output$Coberturas <- renderUI(
+    if(!is.null(input$tabs)){
+      if(input$tabs == "Coberturas"){
+        ### ------- Participación accionaria -------- ###
+        source(paste0(path,"/Codigo/Utilities/Futilidad.R"),encoding = "UTF-8")
+        source(paste0(path,"/Codigo/Utilities/Funciones.R"),encoding = "UTF-8")
+
+        ### ------- Participación accionaria -------- ###
+        ######################## ------------- Patrimonios: Agregacion ----------------##########################
+        Participacion_accionaria_empresas <<- Participacion_empresas(Excel = paste0(path,"/Inputs/Parametros/Parametros.xlsx"))
+        ### ------- Coberturas disponibles por empresa ------- ###
+        Coberturas_disponibles_empresas <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Coberturas"))
+        Segmentos_empresas_informacion <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Segmentos"))
+        Patrimonios_completos <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Patrimonios"))
+        Patrimonio_agregado <<- Patrimonios_completos[grep(as.character(Patrimonios_completos[,"Empresa"]),pattern = "Patrimonio_Agregado"),"Patrimonio"]
+        Segmentos_empresas_load <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Segmentos"))
+        Base_excel <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = 1))
+        ### Nombres ###
+        Nombres_shiny <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Nombres"))
+        ### Variables de cada empresa ###
+        Informacion_empresas <<- as.data.frame(read_excel(paste0(path,"/Inputs/Parametros/Parametros.xlsx"),sheet = "Variables"))
+
+        if(Modo_backup == F){
+          load(paste0(path,"/Inputs/Insumos/MatFechas.Rdata"))
+          Matriz_Fechas <<- Matriz_Fechas
+          load(paste0(path,"/Outputs/Resultados/Resultados_agregacion_contable.Rdata"))
+          Resultados_agregacion_contable <<- Resultados_agregacion_contable
+
+          ### --- Output de funcion: Agregacion_contable -> Agregacion Teórica Paralela --- ###
+          load(paste0(path,"/Outputs/Resultados/Resultados_agregacion_teorica.Rdata"))
+
+          Resultados_agregacion_teorica <<- Resultados_agregacion_teorica
+
+
+          ######################## ------------- Patrimonios: Agregacion ----------------##########################
+          ######################## ------------- Patrimonios: Agregacion ----------------##########################
+          ### --- Definicion de Matriz de simulaciones en ambiente global --- ###
+          load(paste0(path,"/Outputs/Simulaciones/Matriz_simulaciones_final.Rdata"))
+          Matriz_simulaciones <<- Matriz_simulaciones[[1]]
+          load(paste0(path,"/Inputs/Parametros/Filiales_correr.Rdata"))
+          Filiales_correr <<- Filiales_correr
+
+          Empresas_activas_segmentos <<- as.character(Filiales_correr[[1]]$Empresas$Empresas)
+          load(paste0(path,'/Outputs/Matriz/Matriz_futuros.Rdata'))
+          Matriz_futuros <<- Matriz_futuros
+          Vector_empresas_ejecutar_tabs_coberturas = Vector_empresas_ejecutar(Empresas =  Filiales_correr[[1]]$Empresas$Empresas,Coberturas = T)
+          if (length(Filiales_correr[[1]]$Empresas$Empresas) > 2){
+            Riesgo_agregado_contable_PG <<- Coberturas_agregadas_gradiente(Factores_cubrir = c('TRM','Brent','NYMEX_RBOB_1M','Nymex_Heating_Oil_1M','Spread_UNL87_USGC_RBOB','Spread_USGC_NYHO'),Nivel_cobertura = c(1,1,1,1,1,1),Tipo = 1,Modo_contable = TRUE,Contable = Resultados_agregacion_contable,Teorica = Resultados_agregacion_teorica,Patrimonio = Patrimonio_agregado,Shiny = T)
+          }
+        } else {
+          print('Cargando backup')
+          source(paste0(path,"/Codigo/Utilities/Funciones.R"),encoding = "UTF-8")
+
+          ### --- Definicion de Matriz de simulaciones en ambiente global --- ###
+          Matriz_Fechas <<-  Backup_generado$Matriz_Fechas
+          Resultados_agregacion_contable <<-  Backup_generado$Resultados_agregacion_contable
+
+          ### --- Output de funcion: Agregacion_contable -> Agregacion Teórica Paralela --- ###
+          Resultados_agregacion_teorica <<-  Backup_generado$Resultados_agregacion_teorica
+
+          Matriz_simulaciones <<- Backup_generado$Matriz_simulaciones[[1]]
+          Filiales_correr <<-  Backup_generado$Filiales_correr
+
+          Empresas_activas_segmentos <<- as.character(Backup_generado$Filiales_correr[[1]]$Empresas$Empresas)
+          Matriz_futuros <<-  Backup_generado$Matriz_futuros
+          Vector_empresas_ejecutar_tabs_coberturas = Vector_empresas_ejecutar(Empresas =  as.character(Backup_generado$Filiales_correr[[1]]$Empresas$Empresas),Coberturas = T)
+
+          if (length(Backup_generado$Filiales_correr[[1]]$Empresas$Empresas) > 2){
+            A1 = Backup_generado$A1
+            Riesgo_agregado_contable_PG <<- Coberturas_agregadas_gradiente(Shiny = T,Factores_cubrir = c('TRM','Brent','NYMEX_RBOB_1M','Nymex_Heating_Oil_1M','Spread_UNL87_USGC_RBOB','Spread_USGC_NYHO'),Nivel_cobertura = c(1,1,1,1,1,1),Tipo = 1,Modo_contable = TRUE,Contable = Resultados_agregacion_contable,Teorica = Resultados_agregacion_teorica,
+                                                                          Simulaciones = Matriz_simulaciones,Patrimonio = Patrimonio_agregado,Fecha_inicial = Backup_generado$Filiales_correr[[1]]$Fecha_inicial,Fecha_final = Backup_generado$Filiales_correr[[1]]$Fecha_minima)
+          }
+
+        }
+
+        #Riesgo_agregado_contable_FC <<- Coberturas_agregadas_gradiente(Factores_cubrir = c("TRM","Brent"),Nivel_cobertura = c(1,1),Tipo = 2,Modo_contable = TRUE,Contable = Resultados_agregacion_contable,Teorica = Resultados_agregacion_teorica,Patrimonio = Patrimonio_agregado)
+
+        #Riesgo_agregado_teorica <<- Coberturas_agregadas_gradiente(Factores_cubrir = c("TRM","Brent"),Nivel_cobertura = c(1,1),Tipo = 1,Modo_contable = FALSE,Contable = Resultados_agregacion_contable,Teorica = Resultados_agregacion_teorica,Patrimonio = Patrimonio_agregado)
+
+
+        Coberturas_tabs = lapply(Vector_empresas_ejecutar_tabs_coberturas,function(y){Coberturas_empresas(x = y,input = input,session = session)})
+        do.call(tabsetPanel, Coberturas_tabs)
+
+
+
+
+        }})
+
+    # session$onSessionEnded(function() {
+    #   stopApp()
+    #   q("no")
+    # })
+
+  ################################## ---------------- Fin Server ----------------  ##################################
+})
